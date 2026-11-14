@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from typing import Callable
 
@@ -66,8 +67,12 @@ def _detect_mouse():
     return devs[0].name if devs else None
 
 
+# Serialises every access to the mouse (lighting and DPI share one USB interface).
+MOUSE_LOCK = threading.Lock()
+
+
 def _apply_mouse(s: Settings) -> None:
-    with mouse_drv.CobraMouse() as m:
+    with MOUSE_LOCK, mouse_drv.CobraMouse() as m:
         m.set_lighting(s.effect, led_rgb(s.color), s.speed, s.brightness)
 
 

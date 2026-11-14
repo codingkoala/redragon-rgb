@@ -15,7 +15,8 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk  # noqa: E402
 
 from . import __version__, config  # noqa: E402
-from .backends import BACKENDS, Backend, BackendError  # noqa: E402
+from . import device as mouse_drv  # noqa: E402
+from .backends import BACKENDS, MOUSE_LOCK, Backend, BackendError  # noqa: E402
 from .config import Settings, hex_to_rgb, rgb_to_hex  # noqa: E402
 from .effects import DIRECTIONS  # noqa: E402
 from .keyboard import KEYS as KB_KEYS  # noqa: E402
@@ -671,6 +672,166 @@ class DevicePage(Gtk.Box):
         threading.Thread(target=worker, daemon=True).start()
 
 
+# --- mouse DPI / profiles ----------------------------------------------------
+class MouseDpiPage(Adw.PreferencesPage):
+    """Active profile, DPI levels and report rate, read from and written to the mouse."""
+
+    def __init__(self, window: "RedragonWindow"):
+        super().__init__()
+        self.window = window
+        self.backend = BACKENDS["mouse"]
+        self.device_name = None
+        self.state: mouse_drv.MouseState | None = None
+        self._updating = False
+
+        prof = Adw.PreferencesGroup(
+            title="Profile",
+            description="The mouse stores five profiles, each with its own DPI levels and report rate.")
+        self.profile_row = Adw.ComboRow(
+            title="Active profile",
+            model=Gtk.StringList.new([f"Profile {i + 1}" for i in range(mouse_drv.PROFILES)]))
+        self.profile_row.connect("notify::selected", self._on_profile)
+        prof.add(self.profile_row)
+        self.add(prof)
+
+        dpi = Adw.PreferencesGroup(
+            title="DPI levels",
+            description="The DPI button under the wheel cycles through the enabled levels. "
+                        "Values are rounded to the steps the sensor supports.")
+        self.level_rows = []
+        lo, hi = mouse_drv.DPI_RANGE
+        for j in range(mouse_drv.DPI_LEVELS):
+            row = Adw.SpinRow(title=f"Level {j + 1}",
+                              adjustment=Gtk.Adjustment(lower=lo, upper=hi, step_increment=50, page_increment=400),
+                              digits=0)
+            switch = Gtk.Switch(valign=Gtk.Align.CENTER, tooltip_text="Include this level in the DPI cycle")
+            row.add_prefix(switch)
+            row.connect("notify::value", self._on_edit)
+            switch.connect("notify::active", self._on_edit)
+            dpi.add(row)
+            self.level_rows.append((row, switch))
+        self.poll_row = Adw.ComboRow(
+            title="Report rate", subtitle="How often the mouse reports its position",
+            model=Gtk.StringList.new([f"{hz} Hz" for hz in sorted(mouse_drv.POLL_CODES)]))
+        dpi.add(self.poll_row)
+        self.add(dpi)
+
+        actions = Adw.PreferencesGroup()
+        box = Gtk.Box(spacing=12, halign=Gtk.Align.CENTER, margin_top=6)
+        self.reload_button = Gtk.Button(label="Reload from mouse")
+        self.reload_button.add_css_class("pill")
+        self.reload_button.connect("clicked", lambda *_: self.reload())
+        self.apply_button = Gtk.Button(label="Write to mouse")
+        self.apply_button.add_css_class("pill")
+        self.apply_button.add_css_class("suggested-action")
+        self.apply_button.connect("clicked", lambda *_: self._write())
+        box.append(self.reload_button)
+        box.append(self.apply_button)
+        actions.add(box)
+        self.add(actions)
+        self._set_busy(True)
+
+    # -- helpers ---------------------------------------------------------
+    def _set_busy(self, busy: bool):
+        for w in (self.profile_row, self.poll_row, self.apply_button, self.reload_button):
+            w.set_sensitive(not busy)
+        for row, switch in self.level_rows:
+            row.set_sensitive(not busy)
+
+    def _run(self, job, done):
+        """Run job(mouse) in a thread with the mouse lock, then done(result, error) on the UI thread."""
+        self._set_busy(True)
+
+        def worker():
+            try:
+                with MOUSE_LOCK, mouse_drv.CobraMouse() as m:
+                    result = job(m)
+                GLib.idle_add(self._finish, done, result, None)
+            except (mouse_drv.DeviceError, ValueError) as exc:
+                GLib.idle_add(self._finish, done, None, exc)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _finish(self, done, result, error):
+        self._set_busy(self.state is None)
+        if error is not None:
+            if isinstance(error, mouse_drv.DevicePermissionError):
+                self.window._update_banner("Missing permissions: run  sudo ./install-udev.sh  and replug the device.")
+            elif isinstance(error, mouse_drv.DeviceNotFound):
+                self.device_name = None
+                self.window._update_banner()
+            else:
+                self.window.toasts.add_toast(Adw.Toast(title=str(error), timeout=4))
+        done(result, error)
+        return False
+
+    def _show(self, state: mouse_drv.MouseState):
+        self.state = state
+        self._updating = True
+        self.profile_row.set_selected(state.active_profile)
+        prof = state.profiles[state.active_profile]
+        for (row, switch), lv in zip(self.level_rows, prof.levels):
+            row.set_value(lv.dpi)
+            switch.set_active(lv.enabled)
+        rates = sorted(mouse_drv.POLL_CODES)
+        if prof.poll_rate in rates:
+            self.poll_row.set_selected(rates.index(prof.poll_rate))
+        self._updating = False
+        self._on_edit()
+        self._set_busy(False)
+
+    # -- device ----------------------------------------------------------
+    def refresh(self):
+        self.device_name = self.backend.detect()
+        if self.device_name:
+            self.reload()
+        return self.device_name
+
+    def reload(self):
+        self._run(lambda m: m.read_state(), lambda st, err: st and self._show(st))
+
+    def _on_profile(self, row, _p):
+        if self._updating or self.state is None:
+            return
+        idx = row.get_selected()
+        self._run(lambda m: (m.set_active_profile(idx), m.read_state())[1],
+                  lambda st, err: st and self._show(st))
+
+    def _on_edit(self, *_):
+        if self._updating:
+            return
+        enabled = 0
+        for row, switch in self.level_rows:
+            want = int(row.get_value())
+            q = mouse_drv.quantize_dpi(want)
+            row.set_subtitle("" if q == want else f"stored as {q} DPI")
+            enabled += switch.get_active()
+        self.apply_button.set_sensitive(enabled > 0 and self.state is not None)
+        self.apply_button.set_tooltip_text(None if enabled else "Enable at least one DPI level")
+
+    def _write(self):
+        idx = self.profile_row.get_selected()
+        levels = [mouse_drv.DpiLevel(sw.get_active(), int(row.get_value())) for row, sw in self.level_rows]
+        poll = sorted(mouse_drv.POLL_CODES)[self.poll_row.get_selected()]
+
+        def job(m):
+            m.write_profile(idx, levels, poll)
+            return m.read_state()
+
+        def done(state, error):
+            if state is None:
+                return
+            self._show(state)
+            got = [(lv.enabled, lv.dpi) for lv in state.profiles[idx].levels]
+            want = [(lv.enabled, mouse_drv.quantize_dpi(lv.dpi)) for lv in levels]
+            ok = got == want and state.profiles[idx].poll_rate == poll
+            self.window.toasts.add_toast(Adw.Toast(
+                title=f"Profile {idx + 1} saved to the mouse" if ok else "The mouse did not store the values as sent",
+                timeout=3))
+
+        self._run(job, done)
+
+
 # --- window ------------------------------------------------------------------
 class RedragonWindow(Adw.ApplicationWindow):
     def __init__(self, app):
@@ -701,6 +862,9 @@ class RedragonWindow(Adw.ApplicationWindow):
             b = page.backend
             sp = self.stack.add_titled_with_icon(page, key, b.title, b.icon)
             page.stack_page = sp
+        self.dpi_page = MouseDpiPage(self)
+        self.dpi_page.stack_page = self.stack.add_titled_with_icon(
+            self.dpi_page, "mouse-dpi", "Mouse DPI", "preferences-system-symbolic")
         self.stack.connect("notify::visible-child", lambda *_: self._update_banner())
         view.set_content(self.stack)
         self.toasts.set_child(view)
@@ -716,6 +880,7 @@ class RedragonWindow(Adw.ApplicationWindow):
 
     def refresh_devices(self):
         first_found = None
+        self.dpi_page.refresh()
         for key, page in self.pages.items():
             name = page.refresh()
             page.stack_page.set_needs_attention(False)

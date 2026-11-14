@@ -17,6 +17,9 @@ No vendor software, no Windows, no pip dependencies.
 - **Mouse:** static, breathing, flashing, rainbow, rainbow breathing, wave, reactive, off
 - **Keyboard:** static, breathing, wave, short wave, spectrum cycle, rain, blooming, reactive, vertical rainbow, rainbow circle, hurricane, accumulate,
   starlight (fast/slow), visor, ripple, reactive line, off — single color or multicolor, with direction
+- **Mouse DPI and profiles:** switch the active profile, set the five DPI levels the DPI button
+  cycles through (and which of them are enabled) and the report rate; values are read back from
+  the mouse after every write
 - **Keyboard per-key colors:** click or drag on the keys in the preview to paint them
 - Color picker with quick presets, speed and brightness sliders; colors are gamma-corrected so
   the LEDs match what you see on screen
@@ -55,6 +58,9 @@ redragon-rgb-cli keyboard static -c 2f6bff -b 4
 redragon-rgb-cli keyboard off
 redragon-rgb-cli keyboard custom --fill 2f6bff --key w=ff1e3c --key a=ff1e3c --key s=ff1e3c --key d=ff1e3c
 redragon-rgb-cli list-keys      # key names for --key
+redragon-rgb-cli mouse-dpi      # show DPI levels and report rate of every profile
+redragon-rgb-cli mouse-dpi --profile 1 --levels 400,800,1600,3200,6400 --enabled 1,1,1,1,0 --poll 1000
+redragon-rgb-cli mouse-profile 2
 redragon-rgb-cli restore        # re-apply the last saved settings to every device
 ```
 
@@ -72,6 +78,13 @@ descriptor declares no feature reports.
 | `02 F3 <addr> <len> 00 00 00 <data>` | write |
 | `02 F1 02 04` | apply |
 | `02 F5 01` | lock (ends every sequence — mandatory) |
+
+Reading: a seek frame `<id> F2 <addr> <count>` followed by `GET_REPORT`, which returns an
+8-byte header plus the data. DPI of profile *n* is read as 32 bytes (report 3) at
+`0x0042 / 0x0102 / 0x01B2 / 0x0262 / 0x0312` and written as 4 bytes per level
+(`enabled, code, high, code`) at those addresses + 2 + 6 × level, then applied with `F1 02 02`;
+DPI = code × 10000/225 × 2^high, and only the X value is used by the firmware. Report rate:
+`0x0032` / `0x0038`; active profile: `0x002C`.
 
 LED of profile *n* (0–4): `0x0449 + 8n` → `R, G, B, mode1, speed, mode2`; brightness:
 `0x044F + 8n`. Color and mode are always written together: writing only the color while a
@@ -100,7 +113,8 @@ To check what a code does on your keyboard: `redragon-rgb-cli probe-keyboard 0x0
 - [x] K556 keyboard (effects)
 - [x] K556 per-key colors
 - [ ] Read the current state back from the mouse
-- [ ] Per-profile settings and DPI
+- [x] Mouse DPI levels, report rate and active profile
+- [ ] Per-profile lighting
 
 ## License
 

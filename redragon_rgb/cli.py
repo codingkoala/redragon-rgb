@@ -7,6 +7,7 @@ import sys
 
 from . import config
 from .backends import BACKENDS, BackendError
+from . import device as mouse_drv
 from .config import Settings, hex_to_rgb
 from .keyboard import KEYS, KEYS_BY_NAME, KeyboardError, RedragonKeyboard
 
@@ -28,6 +29,51 @@ def _add_set_parser(sub, key: str) -> None:
                        help="custom: paint one key, e.g. --key w=ff0000 (repeatable; see list-keys)")
 
 
+def _print_state(state) -> None:
+    for i, p in enumerate(state.profiles):
+        mark = "*" if i == state.active_profile else " "
+        levels = "  ".join(f"{lv.dpi:>5}{'' if lv.enabled else '(off)'}" for lv in p.levels)
+        poll = f"{p.poll_rate} Hz" if p.poll_rate else "?"
+        print(f"{mark} profile {i + 1}: {levels}   report rate {poll}")
+
+
+def _mouse_dpi(args) -> int:
+    with mouse_drv.CobraMouse() as m:
+        state = m.read_state()
+        if not (args.levels or args.enabled or args.poll):
+            _print_state(state)
+            return 0
+        idx = state.active_profile if args.profile is None else args.profile - 1
+        if not 0 <= idx < mouse_drv.PROFILES:
+            raise ValueError("profile must be 1-5")
+        levels = [mouse_drv.DpiLevel(lv.enabled, lv.dpi) for lv in state.profiles[idx].levels]
+        if args.levels:
+            values = [int(v) for v in args.levels.split(",")]
+            if len(values) != mouse_drv.DPI_LEVELS:
+                raise ValueError("--levels needs exactly 5 values")
+            for lv, v in zip(levels, values):
+                lv.dpi = v
+        if args.enabled:
+            flags = [v.strip() not in ("0", "") for v in args.enabled.split(",")]
+            if len(flags) != mouse_drv.DPI_LEVELS:
+                raise ValueError("--enabled needs exactly 5 values")
+            for lv, f in zip(levels, flags):
+                lv.enabled = f
+        for lv in levels:
+            q = mouse_drv.quantize_dpi(lv.dpi)
+            if q != lv.dpi:
+                print(f"note: {lv.dpi} DPI is stored as {q} (firmware steps of ~44)", file=sys.stderr)
+        m.write_profile(idx, levels, args.poll)
+        after = m.read_state()
+    _print_state(after)
+    wanted = [(lv.enabled, mouse_drv.quantize_dpi(lv.dpi)) for lv in levels]
+    got = [(lv.enabled, lv.dpi) for lv in after.profiles[idx].levels]
+    if wanted != got or (args.poll and after.profiles[idx].poll_rate != args.poll):
+        print("error: read-back does not match what was written", file=sys.stderr)
+        return 1
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="redragon-rgb-cli",
                                      description="Configure the RGB lighting of Redragon M711 mice and K556 keyboards")
@@ -35,6 +81,13 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("list", help="list detected devices")
     _add_set_parser(sub, "mouse")
     _add_set_parser(sub, "keyboard")
+    dpi = sub.add_parser("mouse-dpi", help="show, or set, the DPI levels and report rate of a mouse profile")
+    dpi.add_argument("--profile", type=int, help="profile to change (1-5); default: the active one")
+    dpi.add_argument("--levels", help="five DPI values, e.g. 400,800,1600,3200,6400")
+    dpi.add_argument("--enabled", help="which levels the DPI button cycles through, e.g. 1,1,1,1,0")
+    dpi.add_argument("--poll", type=int, choices=sorted(mouse_drv.POLL_CODES), help="report rate in Hz")
+    prof = sub.add_parser("mouse-profile", help="switch the active mouse profile")
+    prof.add_argument("profile", type=int, choices=range(1, mouse_drv.PROFILES + 1))
     sub.add_parser("list-keys", help="list the key names usable with --key")
     sub.add_parser("restore", help="re-apply the last saved settings to every device")
     probe = sub.add_parser("probe-keyboard", help="diagnostics: send a raw mode code (0-20)")
@@ -67,6 +120,11 @@ def main(argv: list[str] | None = None) -> int:
                     hex_to_rgb(color)
             BACKENDS[args.cmd].apply(s)
             config.save(args.cmd, s)
+        elif args.cmd == "mouse-dpi":
+            return _mouse_dpi(args)
+        elif args.cmd == "mouse-profile":
+            with mouse_drv.CobraMouse() as m:
+                m.set_active_profile(args.profile - 1)
         elif args.cmd == "list-keys":
             print(" ".join(k.name for k in KEYS))
         elif args.cmd == "restore":
@@ -86,7 +144,7 @@ def main(argv: list[str] | None = None) -> int:
                 if not 0 <= args.dir <= 5:
                     raise ValueError("direction code out of range (0-5)")
                 k.send_raw_mode(args.code, direction=args.dir)
-    except (BackendError, KeyboardError, ValueError) as exc:
+    except (BackendError, KeyboardError, mouse_drv.DeviceError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     return 0
