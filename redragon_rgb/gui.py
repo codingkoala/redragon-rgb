@@ -519,10 +519,19 @@ class DevicePage(Gtk.Box):
             keys = [k for k, _ in choices]
             if s.direction not in keys:
                 s.direction = keys[0]
+            # Never replace the model needlessly: this also runs from the
+            # row's own notify::selected handler, and swapping the model of a
+            # ComboRow from inside that signal hangs GTK.
             self._loading_dir = True
-            self.dir_row.set_model(Gtk.StringList.new([label for _, label in choices]))
-            self.dir_row.set_selected(keys.index(s.direction))
-            self._loading_dir = False
+            try:
+                if getattr(self, "_dir_kind", None) != e.direction:
+                    self.dir_row.set_model(Gtk.StringList.new([label for _, label in choices]))
+                    self._dir_kind = e.direction
+                wanted = keys.index(s.direction)
+                if self.dir_row.get_selected() != wanted:
+                    self.dir_row.set_selected(wanted)
+            finally:
+                self._loading_dir = False
         self.preview.queue_draw()
 
     def _changed(self):
