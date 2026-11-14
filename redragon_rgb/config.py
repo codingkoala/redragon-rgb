@@ -20,7 +20,6 @@ class Settings:
     direction: str = "left"
     multicolor: bool = False
     keys: dict[str, str] = field(default_factory=dict)  # per-key colors (custom effect)
-    profile: int = 0  # mouse: 0 = all profiles, 1-5 = only that profile
 
     def copy(self) -> "Settings":
         return replace(self, keys=dict(self.keys))

@@ -90,20 +90,16 @@ def _detect_mouse():
 MOUSE_LOCK = threading.Lock()
 
 
-def _profiles(s: Settings) -> list[int] | None:
-    return None if not s.profile else [s.profile - 1]
-
-
 def _apply_mouse(s: Settings) -> None:
     wb = config.load_balance("mouse")
     with MOUSE_LOCK, mouse_drv.CobraMouse() as m:
-        m.set_lighting(s.effect, led_rgb(s.color, wb), s.speed, s.brightness, _profiles(s))
+        m.set_lighting(s.effect, led_rgb(s.color, wb), s.speed, s.brightness)
 
 
 def _read_mouse(base: Settings) -> Settings | None:
     wb = config.load_balance("mouse")
     with MOUSE_LOCK, mouse_drv.CobraMouse() as m:
-        lit = m.read_lighting(base.profile - 1 if base.profile else None)
+        lit = m.read_lighting()
     if lit.effect is None:
         return None
     s = base.copy()

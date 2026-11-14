@@ -21,9 +21,6 @@ def _add_set_parser(sub, key: str) -> None:
     p.add_argument("-s", "--speed", type=int, default=(lo + hi) // 2, help=f"speed {lo}-{hi}")
     lo, hi = b.brightness_range
     p.add_argument("-b", "--brightness", type=int, default=hi, help=f"brightness {lo}-{hi}")
-    if key == "mouse":
-        p.add_argument("-p", "--profile", type=int, choices=range(1, 6),
-                       help="only this profile (default: all five)")
     if key == "keyboard":
         p.add_argument("-d", "--direction", choices=["left", "right", "up", "down"], default="left")
         p.add_argument("-m", "--multicolor", action="store_true", help="random / rainbow colors")
@@ -115,7 +112,6 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd in BACKENDS:
             s = Settings(args.effect, "#" + args.color.lstrip("#"), args.speed, args.brightness,
                          getattr(args, "direction", "left"), getattr(args, "multicolor", False))
-            s.profile = getattr(args, "profile", None) or 0
             hex_to_rgb(s.color)
             if args.cmd == "keyboard" and args.effect == "custom":
                 s.keys = {} if args.fill else dict(config.load("keyboard").keys)

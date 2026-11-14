@@ -407,12 +407,12 @@ class CobraMouse:
         color: tuple[int, int, int] = (255, 30, 60),
         speed: int = 4,
         brightness: int = 3,
-        profiles: list[int] | None = None,
     ) -> None:
-        """Apply one lighting effect to the given profiles (0-4), default all five."""
-        profiles = list(range(PROFILES)) if profiles is None else profiles
-        if not profiles or any(not 0 <= p < PROFILES for p in profiles):
-            raise ValueError(f"Profiles must be 1-{PROFILES}")
+        """Apply one lighting effect to all five profiles.
+
+        Per-profile lighting is not offered: after a profile switch the
+        firmware shows the DPI level color instead of the profile's lighting.
+        """
         if isinstance(effect, str):
             effect = EFFECTS_BY_KEY[effect]
         r, g, b = (max(0, min(255, int(c))) for c in color)
@@ -424,7 +424,7 @@ class CobraMouse:
         led = bytes([r, g, b, effect.code[0], fw_speed, effect.code[1]])
 
         with self._session():
-            for p in profiles:
+            for p in range(PROFILES):
                 self._write(ADDR_LED + PROFILE_STRIDE * p, led)
                 self._write(ADDR_BRIGHTNESS + PROFILE_STRIDE * p, bytes([brightness]))
             self._apply(0x04)

@@ -24,8 +24,6 @@ No vendor software, no Windows, no pip dependencies.
 - Color picker with quick presets, speed and brightness sliders; colors are gamma-corrected so
   the LEDs match what you see on screen
 - **White balance** per device: lower the red, green or blue gain if white looks tinted
-- **Per-profile mouse lighting:** apply an effect to all five profiles or to a single one, so
-  switching profile also switches the lighting
 - Optional live apply; at startup the mouse page shows what is actually stored in the mouse
   (the keyboard page shows the last settings applied by the app)
 - Settings are stored in the devices' own memory (all 5 mouse profiles), so they persist across
@@ -57,7 +55,6 @@ Unplug and replug the devices after installing the udev rule. To try it without 
 redragon-rgb-cli list
 redragon-rgb-cli mouse static -c "#00e5ff" -b 3
 redragon-rgb-cli mouse breathing -c ff1e3c -s 5
-redragon-rgb-cli mouse static -c 00ff00 --profile 5   # only profile 5
 redragon-rgb-cli keyboard wave -m -s 4 -d right
 redragon-rgb-cli keyboard static -c 2f6bff -b 4
 redragon-rgb-cli keyboard off
@@ -121,7 +118,6 @@ To check what a code does on your keyboard: `redragon-rgb-cli probe-keyboard 0x0
 - [x] K556 per-key colors
 - [x] Read the current mouse lighting and DPI back at startup
 - [x] Mouse DPI levels, report rate and active profile
-- [x] Per-profile mouse lighting
 - [x] White balance per device
 
 ## License

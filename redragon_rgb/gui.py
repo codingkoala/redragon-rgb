@@ -455,16 +455,6 @@ class DevicePage(Gtk.Box):
     def _build_controls(self):
         page = Adw.PreferencesPage(width_request=440)
 
-        self.profile_row = None
-        if self.backend.key == "mouse":
-            target = Adw.PreferencesGroup()
-            self.profile_row = Adw.ComboRow(
-                title="Apply to", subtitle="Each mouse profile can have its own lighting",
-                model=Gtk.StringList.new(["All profiles"] + [f"Profile {i}" for i in range(1, 6)]))
-            self.profile_row.connect("notify::selected", self._on_target_profile)
-            target.add(self.profile_row)
-            page.add(target)
-
         effects = Adw.PreferencesGroup(title="Effect")
         self.effect_checks = {}
         leader = None
@@ -587,8 +577,6 @@ class DevicePage(Gtk.Box):
         self.speed_scale.set_value(s.speed)
         self.bright_scale.set_value(s.brightness)
         self.multi_row.set_active(s.multicolor)
-        if self.profile_row is not None:
-            self.profile_row.set_selected(max(0, min(5, s.profile)))
         for scale, gain in zip(self.wb_scales, config.load_balance(self.backend.key)):
             scale.set_value(round(gain * 100))
         self._sync()
@@ -689,14 +677,6 @@ class DevicePage(Gtk.Box):
             self.settings.direction = choices[idx][0]
             self._changed()
 
-    def _on_target_profile(self, row, _p):
-        if self._loading:
-            return
-        self.settings.profile = row.get_selected()
-        config.save(self.backend.key, self.settings)
-        # show what that profile currently has, without writing anything
-        self._read_from_device()
-
     def _on_balance(self, _scale):
         if self._loading:
             return
@@ -706,6 +686,7 @@ class DevicePage(Gtk.Box):
 
     def _on_show_white(self, *_):
         self.effect_checks["static"].set_active(True)
+        self.multi_row.set_active(False)  # otherwise the keys are not all white
         self._on_swatch(None, "#ffffff")
         # apply right away even if nothing changed (e.g. already static white)
         self.apply(show_toast=False)
