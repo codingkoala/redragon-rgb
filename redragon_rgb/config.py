@@ -66,7 +66,7 @@ def save(device: str, settings: Settings) -> None:
 def hex_to_rgb(value: str) -> tuple[int, int, int]:
     value = value.strip().lstrip("#")
     if len(value) != 6:
-        raise ValueError(f"Colore non valido: #{value}")
+        raise ValueError(f"Invalid color: #{value}")
     return tuple(int(value[i : i + 2], 16) for i in (0, 2, 4))  # type: ignore[return-value]
 
 

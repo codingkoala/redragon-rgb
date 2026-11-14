@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Redragon RGB
-Comment=Configura i LED di mouse e tastiere Redragon
+Comment=Configure the RGB lighting of Redragon mice and keyboards
 Exec=redragon-rgb
 Icon=input-mouse
 Terminal=false

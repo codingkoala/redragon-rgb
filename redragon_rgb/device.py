@@ -14,8 +14,8 @@ Protocol (from dokutan/mouse_m908, OpenRGB and SK2674/m711-port):
   * LED of profile n (0..4): 0x0449 + 8n -> R, G, B, mode1, speed, mode2
   * brightness of profile n:  0x044F + 8n -> 1 byte (1..3)
 
-Colour, mode1 and mode2 are always written together: writing only the
-colour while a colour-less mode is active freezes the LED animation.
+Color, mode1 and mode2 are always written together: writing only the
+color while a color-less mode is active freezes the LED animation.
 """
 
 from __future__ import annotations
@@ -48,14 +48,14 @@ BRIGHTNESS_RANGE = (1, 3)
 
 EFFECTS: list[Effect] = [
     # code = (mode1, mode2)
-    Effect("static", "Statico", "Colore fisso", (0x01, 0x02), True, False),
-    Effect("breathing", "Respiro", "Il colore pulsa lentamente", (0x01, 0x04), True, True),
-    Effect("flashing", "Lampeggio", "Il colore lampeggia", (0x01, 0x10), True, True),
-    Effect("rainbow", "Arcobaleno", "Ciclo continuo di tutti i colori", (0x01, 0x08), False, True, "always"),
-    Effect("rainbow_breathing", "Respiro arcobaleno", "Pulsazione con colore che cambia", (0x01, 0x01), False, True, "always"),
-    Effect("wave", "Onda", "Onda di colori che scorre", (0x02, 0x00), False, True, "always"),
-    Effect("reactive", "Reattivo", "Si illumina quando premi i tasti", (0x07, 0x00), True, True),
-    Effect("off", "Spento", "LED spenti", (0x00, 0x00), is_off=True),
+    Effect("static", "Static", "Solid color", (0x01, 0x02), True, False),
+    Effect("breathing", "Breathing", "The color slowly pulses", (0x01, 0x04), True, True),
+    Effect("flashing", "Flashing", "The color blinks", (0x01, 0x10), True, True),
+    Effect("rainbow", "Rainbow", "Continuous cycle through all colors", (0x01, 0x08), False, True, "always"),
+    Effect("rainbow_breathing", "Rainbow breathing", "Pulses, changing color each time", (0x01, 0x01), False, True, "always"),
+    Effect("wave", "Wave", "Flowing wave of colors", (0x02, 0x00), False, True, "always"),
+    Effect("reactive", "Reactive", "Lights up when you click", (0x07, 0x00), True, True),
+    Effect("off", "Off", "LEDs off", (0x00, 0x00), is_off=True),
 ]
 EFFECTS_BY_KEY = {e.key: e for e in EFFECTS}
 
@@ -88,7 +88,7 @@ def _libusb() -> ctypes.CDLL:
     try:
         lib = ctypes.CDLL(name)
     except OSError as exc:
-        raise DeviceError("libusb-1.0 non trovata: sudo apt install libusb-1.0-0") from exc
+        raise DeviceError("libusb-1.0 not found: sudo apt install libusb-1.0-0") from exc
     vp = ctypes.c_void_p
     lib.libusb_init.argtypes = [ctypes.POINTER(vp)]
     lib.libusb_exit.argtypes = [vp]
@@ -150,7 +150,7 @@ def find_devices() -> list[DeviceInfo]:
     lib = _libusb()
     ctx = ctypes.c_void_p()
     if lib.libusb_init(ctypes.byref(ctx)) != 0:
-        raise DeviceError("Impossibile inizializzare libusb")
+        raise DeviceError("Could not initialize libusb")
     try:
         devs, n = _scan(lib, ctx)
         try:
@@ -171,7 +171,7 @@ class CobraMouse:
         self._handle = ctypes.c_void_p()
         self._claimed = False
         if lib.libusb_init(ctypes.byref(self._ctx)) != 0:
-            raise DeviceError("Impossibile inizializzare libusb")
+            raise DeviceError("Could not initialize libusb")
         try:
             self._open()
         except Exception:
@@ -184,7 +184,7 @@ class CobraMouse:
         try:
             found = next(_matching(lib, devs, n), None)
             if found is None:
-                raise DeviceNotFound("Nessun Redragon M711 trovato. Il mouse è collegato?")
+                raise DeviceNotFound("No Redragon M711 found. Is the mouse plugged in?")
             dev, pid = found
             self.info = DeviceInfo(PRODUCT_IDS[pid], pid)
             rc = lib.libusb_open(dev, ctypes.byref(self._handle))
@@ -192,17 +192,17 @@ class CobraMouse:
             lib.libusb_free_device_list(devs, 1)
         if rc == LIBUSB_ERROR_ACCESS:
             raise DevicePermissionError(
-                "Permesso negato sul dispositivo USB. Installa la regola udev: "
+                "Permission denied on the USB device. Install the udev rule: "
                 "sudo ./install-udev.sh"
             )
         if rc != 0:
-            raise DeviceError(f"Apertura fallita: {_err(lib, rc)}")
+            raise DeviceError(f"Could not open the device: {_err(lib, rc)}")
         lib.libusb_set_auto_detach_kernel_driver(self._handle, 1)
         rc = lib.libusb_claim_interface(self._handle, INTERFACE)
         if rc == LIBUSB_ERROR_BUSY:
-            raise DeviceError("Interfaccia occupata: chiudi OpenRGB o altri programmi che usano il mouse.")
+            raise DeviceError("Interface busy: close OpenRGB or any other program using the mouse.")
         if rc != 0:
-            raise DeviceError(f"Impossibile acquisire l'interfaccia: {_err(lib, rc)}")
+            raise DeviceError(f"Could not claim the interface: {_err(lib, rc)}")
         self._claimed = True
 
     def close(self) -> None:
@@ -232,9 +232,9 @@ class CobraMouse:
             INTERFACE, bytes(frame), FRAME_SIZE, TIMEOUT_MS,
         )
         if rc == LIBUSB_ERROR_NO_DEVICE:
-            raise DeviceNotFound("Il mouse è stato scollegato.")
+            raise DeviceNotFound("The mouse was disconnected.")
         if rc != FRAME_SIZE:
-            raise DeviceError(f"Errore di comunicazione: {_err(self._lib, rc) if rc < 0 else rc}")
+            raise DeviceError(f"Communication error: {_err(self._lib, rc) if rc < 0 else rc}")
 
     def _lock(self, locked: bool) -> None:
         self._send(bytes([REPORT_ID, 0xF5, 0x01 if locked else 0x00]))

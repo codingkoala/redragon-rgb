@@ -12,7 +12,7 @@ Packet layout (from OpenRGB's EVisionKeyboardController):
   [5]    parameter / offset
   [8..]  data
 Set-parameter 0 with 8 bytes = mode, brightness (0-4), speed (5 slow - 0 fast),
-direction, random-colour flag, R, G, B.
+direction, random-color flag, R, G, B.
 """
 
 from __future__ import annotations
@@ -45,19 +45,19 @@ DIRECTION_CODES = {"left": 0, "right": 1, "up": 2, "down": 3}
 # agree. Codes 0x01, 0x03, 0x04, 0x07, 0x0B, 0x11 differ between firmwares
 # and are not exposed until probed on real hardware.
 EFFECTS: list[Effect] = [
-    Effect("static", "Statico", "Colore fisso", (0x06,), True, False, "optional"),
-    Effect("breathing", "Respiro", "Il colore pulsa lentamente", (0x05,), True, True, "optional"),
-    Effect("wave", "Onda", "Onda di colore che scorre", (0x02,), True, True, "optional", "lr"),
-    Effect("vertical_rainbow", "Arcobaleno verticale", "Arcobaleno che sale o scende", (0x0C,), False, True, "always", "ud"),
-    Effect("rainbow_circle", "Cerchi arcobaleno", "Cerchi di colore dal centro", (0x12,), False, True, "always"),
-    Effect("hurricane", "Uragano", "Vortice di colore", (0x0D,), True, True, "optional"),
-    Effect("accumulate", "Accumulo", "I tasti si accendono uno alla volta", (0x0E,), True, True, "optional"),
-    Effect("starlight", "Cielo stellato", "Tasti che brillano a caso", (0x0A,), True, True, "optional"),
-    Effect("starlight_slow", "Cielo stellato lento", "Scintillio più calmo", (0x0F,), True, True, "optional"),
-    Effect("visor", "Scanner", "Barra che scorre avanti e indietro", (0x10,), True, True, "optional"),
-    Effect("ripple", "Increspatura", "Onda che parte dal tasto premuto", (0x08,), True, True, "optional"),
-    Effect("reactive_line", "Linea reattiva", "Linea che parte dal tasto premuto", (0x09,), True, True, "optional"),
-    Effect("off", "Spento", "LED spenti", (0x06,), is_off=True),
+    Effect("static", "Static", "Solid color", (0x06,), True, False, "optional"),
+    Effect("breathing", "Breathing", "The color slowly pulses", (0x05,), True, True, "optional"),
+    Effect("wave", "Wave", "Flowing wave of color", (0x02,), True, True, "optional", "lr"),
+    Effect("vertical_rainbow", "Vertical rainbow", "Rainbow moving up or down", (0x0C,), False, True, "always", "ud"),
+    Effect("rainbow_circle", "Rainbow circle", "Color rings spreading from the centre", (0x12,), False, True, "always"),
+    Effect("hurricane", "Hurricane", "Swirl of color", (0x0D,), True, True, "optional"),
+    Effect("accumulate", "Accumulate", "Keys light up one by one", (0x0E,), True, True, "optional"),
+    Effect("starlight", "Starlight", "Random twinkling keys", (0x0A,), True, True, "optional"),
+    Effect("starlight_slow", "Starlight (slow)", "Calmer twinkling", (0x0F,), True, True, "optional"),
+    Effect("visor", "Visor", "A bar sweeping back and forth", (0x10,), True, True, "optional"),
+    Effect("ripple", "Ripple", "Ring spreading from the pressed key", (0x08,), True, True, "optional"),
+    Effect("reactive_line", "Reactive line", "Line running from the pressed key", (0x09,), True, True, "optional"),
+    Effect("off", "Off", "LEDs off", (0x06,), is_off=True),
 ]
 EFFECTS_BY_KEY = {e.key: e for e in EFFECTS}
 
@@ -115,17 +115,17 @@ class RedragonKeyboard:
         if info is None:
             devices = find_keyboards()
             if not devices:
-                raise KeyboardNotFound("Nessuna tastiera Redragon EVision trovata.")
+                raise KeyboardNotFound("No Redragon K556 keyboard found.")
             info = devices[0]
         self.info = info
         try:
             self._fd = os.open(info.path, os.O_RDWR)
         except PermissionError as exc:
             raise KeyboardPermissionError(
-                "Permesso negato sulla tastiera. Reinstalla la regola udev: sudo ./install-udev.sh"
+                "Permission denied on the keyboard. Reinstall the udev rule: sudo ./install-udev.sh"
             ) from exc
         except OSError as exc:
-            raise KeyboardError(f"Impossibile aprire {info.path}: {exc}") from exc
+            raise KeyboardError(f"Could not open {info.path}: {exc}") from exc
 
     def close(self) -> None:
         if self._fd is not None:
@@ -153,7 +153,7 @@ class RedragonKeyboard:
             if ready:
                 os.read(self._fd, PACKET_SIZE)
         except OSError as exc:
-            raise KeyboardError(f"Errore di comunicazione con la tastiera: {exc}") from exc
+            raise KeyboardError(f"Keyboard communication error: {exc}") from exc
 
     def set_lighting(
         self,

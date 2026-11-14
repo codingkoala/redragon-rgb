@@ -18,4 +18,4 @@ PYTHONPATH="$DEST" exec /usr/bin/python3 -m redragon_rgb.cli "\$@"
 EOS
 chmod +x "$BIN/redragon-rgb" "$BIN/redragon-rgb-cli"
 sed "s|^Exec=.*|Exec=$BIN/redragon-rgb|" "$SRC/data/io.github.codingkoala.RedragonRGB.desktop" > "$APPS/io.github.codingkoala.RedragonRGB.desktop"
-echo "Installato. Avvia 'Redragon RGB' dal menu applicazioni oppure con: redragon-rgb"
+echo "Installed. Start 'Redragon RGB' from the application menu or run: redragon-rgb"

@@ -71,6 +71,6 @@ def _apply_keyboard(s: Settings) -> None:
 BACKENDS = {
     "mouse": Backend("mouse", "Mouse", "input-mouse-symbolic", mouse_drv.EFFECTS,
                      mouse_drv.SPEED_RANGE, mouse_drv.BRIGHTNESS_RANGE, _detect_mouse, _apply_mouse),
-    "keyboard": Backend("keyboard", "Tastiera", "input-keyboard-symbolic", kb_drv.EFFECTS,
+    "keyboard": Backend("keyboard", "Keyboard", "input-keyboard-symbolic", kb_drv.EFFECTS,
                         kb_drv.SPEED_RANGE, kb_drv.BRIGHTNESS_RANGE, _detect_keyboard, _apply_keyboard),
 }

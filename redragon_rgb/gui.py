@@ -252,7 +252,7 @@ KB_H = max(y + h for _, y, _, h in KEYS)
 
 
 def keyboard_led(s: Settings, t: float, x: float, y: float, seed: float, hit: float, hit_pos):
-    """Colour of the key at normalised position (x, y)."""
+    """Color of the key at normalised position (x, y)."""
     base = tuple(c / 255 for c in hex_to_rgb(s.color))
     multi = s.multicolor
     rate = 0.2 + s.speed * 0.22
@@ -394,7 +394,7 @@ class DevicePage(Gtk.Box):
     def _build_controls(self):
         page = Adw.PreferencesPage(width_request=440)
 
-        effects = Adw.PreferencesGroup(title="Effetto")
+        effects = Adw.PreferencesGroup(title="Effect")
         self.effect_checks = {}
         leader = None
         for e in self.backend.effects:
@@ -411,11 +411,11 @@ class DevicePage(Gtk.Box):
             self.effect_checks[e.key] = check
         page.add(effects)
 
-        color_group = Adw.PreferencesGroup(title="Colore")
-        self.multi_row = Adw.SwitchRow(title="Multicolore", subtitle="Usa colori arcobaleno invece del colore scelto")
+        color_group = Adw.PreferencesGroup(title="Color")
+        self.multi_row = Adw.SwitchRow(title="Multicolor", subtitle="Use rainbow colors instead of the chosen one")
         self.multi_row.connect("notify::active", self._on_multi)
         color_group.add(self.multi_row)
-        self.color_row = Adw.ActionRow(title="Colore LED")
+        self.color_row = Adw.ActionRow(title="LED color")
         self.color_button = Gtk.ColorDialogButton(dialog=Gtk.ColorDialog(with_alpha=False), valign=Gtk.Align.CENTER)
         self.color_button.connect("notify::rgba", self._on_color_changed)
         self.color_row.add_suffix(self.color_button)
@@ -434,10 +434,10 @@ class DevicePage(Gtk.Box):
         color_group.add(self.swatch_row)
         page.add(color_group)
 
-        anim = Adw.PreferencesGroup(title="Animazione")
-        self.speed_row, self.speed_scale = self._scale_row("Velocità", *self.backend.speed_range)
-        self.bright_row, self.bright_scale = self._scale_row("Luminosità", *self.backend.brightness_range)
-        self.dir_row = Adw.ComboRow(title="Direzione")
+        anim = Adw.PreferencesGroup(title="Animation")
+        self.speed_row, self.speed_scale = self._scale_row("Speed", *self.backend.speed_range)
+        self.bright_row, self.bright_scale = self._scale_row("Brightness", *self.backend.brightness_range)
+        self.dir_row = Adw.ComboRow(title="Direction")
         self.dir_row.connect("notify::selected", self._on_direction)
         anim.add(self.speed_row)
         anim.add(self.bright_row)
@@ -445,10 +445,10 @@ class DevicePage(Gtk.Box):
         page.add(anim)
 
         apply_group = Adw.PreferencesGroup()
-        self.live_row = Adw.SwitchRow(title="Applica in tempo reale",
-                                      subtitle="Invia le modifiche mentre le fai", active=True)
+        self.live_row = Adw.SwitchRow(title="Apply live",
+                                      subtitle="Send changes to the device as you make them", active=True)
         apply_group.add(self.live_row)
-        btn = Gtk.Button(label=f"Applica a {self.backend.title.lower()}", halign=Gtk.Align.CENTER, margin_top=18)
+        btn = Gtk.Button(label=f"Apply to {self.backend.title.lower()}", halign=Gtk.Align.CENTER, margin_top=18)
         btn.add_css_class("suggested-action")
         btn.add_css_class("pill")
         btn.connect("clicked", lambda *_: self.apply(show_toast=True))
@@ -585,13 +585,13 @@ class RedragonWindow(Adw.ApplicationWindow):
         header.set_title_widget(switcher)
         menu = Gtk.MenuButton(icon_name="open-menu-symbolic", tooltip_text="Menu")
         m = Gio.Menu()
-        m.append("Ricerca dispositivi", "win.refresh")
-        m.append("Informazioni su Redragon RGB", "app.about")
+        m.append("Rescan devices", "win.refresh")
+        m.append("About Redragon RGB", "app.about")
         menu.set_menu_model(m)
         header.pack_end(menu)
         view.add_top_bar(header)
 
-        self.banner = Adw.Banner(button_label="Riprova")
+        self.banner = Adw.Banner(button_label="Retry")
         self.banner.connect("button-clicked", lambda *_: self.refresh_devices())
         view.add_top_bar(self.banner)
 
@@ -635,7 +635,7 @@ class RedragonWindow(Adw.ApplicationWindow):
             self.banner.set_title(message)
             self.banner.set_revealed(True)
         elif page.device_name is None:
-            self.banner.set_title(f"{page.backend.title}: nessun dispositivo Redragon rilevato. Collegalo e premi Riprova.")
+            self.banner.set_title(f"{page.backend.title}: no Redragon device detected. Plug it in and press Retry.")
             self.banner.set_revealed(True)
         else:
             self.banner.set_revealed(False)
@@ -645,9 +645,9 @@ class RedragonWindow(Adw.ApplicationWindow):
             if page is self.current():
                 self._update_banner()
             if show_toast:
-                self.toasts.add_toast(Adw.Toast(title="Impostazioni applicate", timeout=2))
+                self.toasts.add_toast(Adw.Toast(title="Settings applied", timeout=2))
         elif error.kind == "permission":
-            self._update_banner("Permessi mancanti: esegui  sudo ./install-udev.sh  e ricollega il dispositivo.")
+            self._update_banner("Missing permissions: run  sudo ./install-udev.sh  and replug the device.")
         elif error.kind == "notfound":
             page.refresh()
             self._update_banner()
@@ -682,11 +682,11 @@ class RedragonApp(Adw.Application):
             application_name="Redragon RGB",
             application_icon="input-mouse",
             version=__version__,
-            comments="Configura i LED di mouse e tastiere Redragon su Linux",
+            comments="Configure the RGB lighting of Redragon mice and keyboards on Linux",
             license_type=Gtk.License.GPL_3_0,
             website="https://github.com/codingkoala/redragon-rgb",
         )
-        dialog.add_credit_section("Protocollo", [
+        dialog.add_credit_section("Protocol research", [
             "dokutan/mouse_m908", "OpenRGB", "SK2674/m711-port", "syndicalt/openrgb-reddragonk556-controller"])
         dialog.present(self.props.active_window)
 
