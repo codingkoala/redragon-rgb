@@ -1,0 +1,6 @@
+# Redragon M711 Cobra / M711-FPS-1 mouse (libusb, vendor interface 2)
+SUBSYSTEM=="usb", ATTRS{idVendor}=="04d9", ATTRS{idProduct}=="fc30", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="04d9", ATTRS{idProduct}=="fc62", TAG+="uaccess"
+# Redragon K556 keyboard, EVision and SONiX controllers (hidraw)
+KERNEL=="hidraw*", ATTRS{idVendor}=="320f", ATTRS{idProduct}=="5000", TAG+="uaccess"
+KERNEL=="hidraw*", ATTRS{idVendor}=="0c45", ATTRS{idProduct}=="5004", TAG+="uaccess"

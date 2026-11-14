@@ -1,13 +1,24 @@
 # Cobra RGB
 
-Configura i LED RGB del mouse **Redragon M711 Cobra** su Linux, con un'interfaccia
-GTK4 / libadwaita nativa per GNOME e una CLI per script.
+Configura i LED RGB del mouse **Redragon M711 Cobra** e della tastiera **Redragon K556**
+su Linux, con un'interfaccia GTK4 / libadwaita nativa per GNOME e una CLI per script.
 
-*Linux RGB lighting control for the Redragon M711 Cobra (USB `04d9:fc30`) — GTK4/libadwaita GUI + CLI, no vendor software needed.*
+*Linux RGB lighting control for the Redragon M711 Cobra mouse (`04d9:fc30`) and K556 keyboard
+(`320f:5000`, `0c45:5004`) — GTK4/libadwaita GUI + CLI, no vendor software needed.*
+
+| Dispositivo | USB ID | Stato |
+|---|---|---|
+| M711 Cobra | `04d9:fc30` | testato |
+| M711-FPS-1 | `04d9:fc62` | non testato |
+| K556 (EVision) | `320f:5000` | in test |
+| K556 (SONiX) | `0c45:5004` | non testato |
 
 ## Funzionalità
 
-- Effetti: statico, respiro, lampeggio, arcobaleno, respiro arcobaleno, onda, reattivo, spento
+- Una scheda per dispositivo (Mouse / Tastiera) con anteprima animata
+- Tastiera: statico, respiro, onda, arcobaleno verticale, cerchi arcobaleno, uragano, accumulo,
+  cielo stellato, scanner, increspatura, linea reattiva — con colore singolo o multicolore e direzione
+- Mouse: statico, respiro, lampeggio, arcobaleno, respiro arcobaleno, onda, reattivo, spento
 - Selettore colore + palette rapida
 - Velocità (1–8) e luminosità (1–3)
 - Anteprima animata dell'effetto
@@ -27,25 +38,28 @@ sudo apt install python3-gi gir1.2-adw-1 libusb-1.0-0
 ```sh
 git clone https://github.com/codingkoala/cobra-rgb.git
 cd cobra-rgb
-sudo ./install-udev.sh   # una volta sola: permessi USB per l'utente
+sudo ./install-udev.sh   # una volta sola: permessi USB/hidraw per l'utente
 ./install.sh             # launcher in ~/.local/bin + voce nel menu applicazioni
 ```
 
-Dopo la regola udev scollega e ricollega il mouse. Per provarlo senza installare:
+Dopo la regola udev scollega e ricollega i dispositivi. Per provarlo senza installare:
 `python3 -m cobra_rgb`.
 
 ## CLI
 
 ```sh
 cobra-rgb-cli list
-cobra-rgb-cli set static -c "#00e5ff" -b 3
-cobra-rgb-cli set breathing -c ff1e3c -s 5
-cobra-rgb-cli set wave -s 8
-cobra-rgb-cli set off
-cobra-rgb-cli restore        # riapplica l'ultima configurazione salvata
+cobra-rgb-cli mouse static -c "#00e5ff" -b 3
+cobra-rgb-cli mouse breathing -c ff1e3c -s 5
+cobra-rgb-cli keyboard wave -m -s 4 -d right
+cobra-rgb-cli keyboard static -c 2f6bff -b 4
+cobra-rgb-cli keyboard off
+cobra-rgb-cli restore        # riapplica le ultime impostazioni di tutti i dispositivi
 ```
 
 ## Come funziona
+
+### Mouse
 
 Il mouse si controlla con trasferimenti di controllo USB (HID `SET_REPORT`, report `0x02`)
 sull'interfaccia vendor n. 2, tramite libusb caricata con `ctypes`: nessuna dipendenza pip.
@@ -68,9 +82,22 @@ Il protocollo è documentato grazie a
 [SK2674/m711-port](https://github.com/SK2674/m711-port), che ha misurato sull'hardware
 il trasporto e le trappole del firmware.
 
+### Tastiera K556
+
+Pacchetti di output HID da 64 byte (report `0x04`) sull'interfaccia vendor (usage page `0xFF1C`)
+via hidraw, con checksum dei byte 3–63 e risposta della tastiera a ogni pacchetto.
+Ogni comando è racchiuso tra `begin` (`0x01`) ed `end` (`0x02`); il parametro 0 imposta
+modalità, luminosità (0–4), velocità (5 lenta → 0 veloce), direzione, flag multicolore e RGB.
+
+I codici modalità differiscono tra le revisioni del firmware: vengono esposti solo quelli su cui
+concordano il driver EVision di OpenRGB e il controller K556 misurato sull'hardware da
+[syndicalt/openrgb-reddragonk556-controller](https://github.com/syndicalt/openrgb-reddragonk556-controller).
+Per mappare gli altri: `cobra-rgb-cli probe-keyboard 0x04`.
+
 ## Roadmap
 
-- [ ] Supporto tastiere Redragon con controller EVision (`320f:5000`)
+- [x] Tastiera K556 (modalità)
+- [ ] K556: colori per singolo tasto
 - [ ] Lettura dello stato attuale dal mouse
 - [ ] Selezione per profilo e DPI
 

@@ -5,41 +5,68 @@ from __future__ import annotations
 import argparse
 import sys
 
+from . import config
+from .backends import BACKENDS, BackendError
 from .config import Settings, hex_to_rgb
-from .device import BRIGHTNESS_RANGE, EFFECTS, SPEED_RANGE, CobraMouse, DeviceError, find_devices
+from .keyboard import KeyboardError, RedragonKeyboard
 
 
-def apply_settings(settings: Settings) -> None:
-    with CobraMouse() as mouse:
-        mouse.set_lighting(settings.effect, hex_to_rgb(settings.color), settings.speed, settings.brightness)
+def _add_set_parser(sub, key: str) -> None:
+    b = BACKENDS[key]
+    p = sub.add_parser(key, help=f"imposta l'illuminazione: {b.title.lower()}")
+    p.add_argument("effect", choices=[e.key for e in b.effects])
+    p.add_argument("-c", "--color", default="#ff1e3c", help="colore esadecimale, es. #00ff88")
+    lo, hi = b.speed_range
+    p.add_argument("-s", "--speed", type=int, default=(lo + hi) // 2, help=f"velocità {lo}-{hi}")
+    lo, hi = b.brightness_range
+    p.add_argument("-b", "--brightness", type=int, default=hi, help=f"luminosità {lo}-{hi}")
+    if key == "keyboard":
+        p.add_argument("-d", "--direction", choices=["left", "right", "up", "down"], default="left")
+        p.add_argument("-m", "--multicolor", action="store_true", help="colori casuali/arcobaleno")
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="cobra-rgb-cli", description="Configura i LED del Redragon M711 Cobra")
+    parser = argparse.ArgumentParser(prog="cobra-rgb-cli",
+                                     description="Configura i LED di mouse M711 e tastiera K556 Redragon")
     sub = parser.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("list", help="elenca i mouse rilevati")
-    s = sub.add_parser("set", help="imposta effetto, colore, velocità e luminosità")
-    s.add_argument("effect", choices=[e.key for e in EFFECTS])
-    s.add_argument("-c", "--color", default="#ff1e3c", help="colore esadecimale, es. #00ff88")
-    s.add_argument("-s", "--speed", type=int, default=4, help=f"velocità {SPEED_RANGE[0]}-{SPEED_RANGE[1]}")
-    s.add_argument("-b", "--brightness", type=int, default=3, help=f"luminosità {BRIGHTNESS_RANGE[0]}-{BRIGHTNESS_RANGE[1]}")
+    sub.add_parser("list", help="elenca i dispositivi rilevati")
+    _add_set_parser(sub, "mouse")
+    _add_set_parser(sub, "keyboard")
     sub.add_parser("restore", help="riapplica le ultime impostazioni salvate")
+    probe = sub.add_parser("probe-keyboard", help="diagnostica: invia un codice modalità grezzo (0-20)")
+    probe.add_argument("code", type=lambda v: int(v, 0))
     args = parser.parse_args(argv)
 
     try:
         if args.cmd == "list":
-            devices = find_devices()
-            for d in devices:
-                print(f"{d.name}\t04d9:{d.product_id:04x}")
-            return 0 if devices else 1
-        if args.cmd == "set":
-            settings = Settings(args.effect, "#" + args.color.lstrip("#"), args.speed, args.brightness)
-            hex_to_rgb(settings.color)
-            apply_settings(settings)
-            settings.save()
+            found = False
+            for b in BACKENDS.values():
+                name = b.detect()
+                print(f"{b.title}:\t{name or 'non trovato'}")
+                found |= name is not None
+            return 0 if found else 1
+        if args.cmd in BACKENDS:
+            s = Settings(args.effect, "#" + args.color.lstrip("#"), args.speed, args.brightness,
+                         getattr(args, "direction", "left"), getattr(args, "multicolor", False))
+            hex_to_rgb(s.color)
+            BACKENDS[args.cmd].apply(s)
+            config.save(args.cmd, s)
         elif args.cmd == "restore":
-            apply_settings(Settings.load())
-    except (DeviceError, ValueError) as exc:
+            rc = 0
+            for key, b in BACKENDS.items():
+                if b.detect():
+                    try:
+                        b.apply(config.load(key))
+                    except BackendError as exc:
+                        print(f"errore ({b.title}): {exc}", file=sys.stderr)
+                        rc = 1
+            return rc
+        elif args.cmd == "probe-keyboard":
+            if not 0 <= args.code <= 0x14:
+                raise ValueError("codice fuori intervallo (0x00-0x14)")
+            with RedragonKeyboard() as k:
+                k.send_raw_mode(args.code)
+    except (BackendError, KeyboardError, ValueError) as exc:
         print(f"errore: {exc}", file=sys.stderr)
         return 1
     return 0

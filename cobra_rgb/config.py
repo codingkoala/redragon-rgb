@@ -1,10 +1,10 @@
-"""Persist the last applied lighting settings."""
+"""Persist the last applied lighting settings, one entry per device."""
 
 from __future__ import annotations
 
 import json
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
 CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "cobra-rgb"
@@ -17,18 +17,50 @@ class Settings:
     color: str = "#ff1e3c"
     speed: int = 4
     brightness: int = 3
+    direction: str = "left"
+    multicolor: bool = False
 
     @classmethod
-    def load(cls) -> "Settings":
-        try:
-            data = json.loads(CONFIG_FILE.read_text())
-            return cls(**{k: data[k] for k in asdict(cls()) if k in data})
-        except (OSError, ValueError, TypeError):
-            return cls()
+    def from_dict(cls, data: dict) -> "Settings":
+        names = {f.name for f in fields(cls)}
+        return cls(**{k: v for k, v in data.items() if k in names})
 
-    def save(self) -> None:
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        CONFIG_FILE.write_text(json.dumps(asdict(self), indent=2))
+
+DEFAULTS = {
+    "mouse": Settings(),
+    "keyboard": Settings(speed=3, brightness=4),
+}
+
+
+def _read_all() -> dict:
+    try:
+        data = json.loads(CONFIG_FILE.read_text())
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    if "effect" in data:  # v0.1 file: flat mouse settings
+        data = {"mouse": data}
+    return data
+
+
+def load(device: str) -> Settings:
+    data = _read_all().get(device)
+    if isinstance(data, dict):
+        try:
+            return Settings.from_dict(data)
+        except TypeError:
+            pass
+    return Settings(**asdict(DEFAULTS[device]))
+
+
+def save(device: str, settings: Settings) -> None:
+    data = _read_all()
+    data[device] = asdict(settings)
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = CONFIG_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2))
+    tmp.replace(CONFIG_FILE)
 
 
 def hex_to_rgb(value: str) -> tuple[int, int, int]:

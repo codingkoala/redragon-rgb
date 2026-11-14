@@ -24,6 +24,8 @@ import ctypes
 import ctypes.util
 from dataclasses import dataclass
 
+from .effects import Effect
+
 VENDOR_ID = 0x04D9
 PRODUCT_IDS = {0xFC30: "Redragon M711 Cobra", 0xFC62: "Redragon M711-FPS-1 Cobra FPS"}
 INTERFACE = 2
@@ -44,25 +46,16 @@ SPEED_RANGE = (1, 8)
 BRIGHTNESS_RANGE = (1, 3)
 
 
-@dataclass(frozen=True)
-class Effect:
-    key: str
-    label: str
-    mode1: int
-    mode2: int
-    uses_color: bool
-    uses_speed: bool
-
-
 EFFECTS: list[Effect] = [
-    Effect("static", "Statico", 0x01, 0x02, True, False),
-    Effect("breathing", "Respiro", 0x01, 0x04, True, True),
-    Effect("flashing", "Lampeggio", 0x01, 0x10, True, True),
-    Effect("rainbow", "Arcobaleno", 0x01, 0x08, False, True),
-    Effect("rainbow_breathing", "Respiro arcobaleno", 0x01, 0x01, False, True),
-    Effect("wave", "Onda", 0x02, 0x00, False, True),
-    Effect("reactive", "Reattivo", 0x07, 0x00, True, True),
-    Effect("off", "Spento", 0x00, 0x00, False, False),
+    # code = (mode1, mode2)
+    Effect("static", "Statico", "Colore fisso", (0x01, 0x02), True, False),
+    Effect("breathing", "Respiro", "Il colore pulsa lentamente", (0x01, 0x04), True, True),
+    Effect("flashing", "Lampeggio", "Il colore lampeggia", (0x01, 0x10), True, True),
+    Effect("rainbow", "Arcobaleno", "Ciclo continuo di tutti i colori", (0x01, 0x08), False, True, "always"),
+    Effect("rainbow_breathing", "Respiro arcobaleno", "Pulsazione con colore che cambia", (0x01, 0x01), False, True, "always"),
+    Effect("wave", "Onda", "Onda di colori che scorre", (0x02, 0x00), False, True, "always"),
+    Effect("reactive", "Reattivo", "Si illumina quando premi i tasti", (0x07, 0x00), True, True),
+    Effect("off", "Spento", "LED spenti", (0x00, 0x00), is_off=True),
 ]
 EFFECTS_BY_KEY = {e.key: e for e in EFFECTS}
 
@@ -266,7 +259,7 @@ class CobraMouse:
         r, g, b = (max(0, min(255, int(c))) for c in color)
         speed = max(SPEED_RANGE[0], min(SPEED_RANGE[1], int(speed)))
         brightness = max(BRIGHTNESS_RANGE[0], min(BRIGHTNESS_RANGE[1], int(brightness)))
-        led = bytes([r, g, b, effect.mode1, speed, effect.mode2])
+        led = bytes([r, g, b, effect.code[0], speed, effect.code[1]])
 
         self._lock(False)
         try:

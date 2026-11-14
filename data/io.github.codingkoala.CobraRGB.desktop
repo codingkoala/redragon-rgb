@@ -1,9 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name=Cobra RGB
-Comment=Configura i LED del mouse Redragon M711 Cobra
+Comment=Configura i LED di mouse e tastiere Redragon
 Exec=cobra-rgb
 Icon=input-mouse
 Terminal=false
 Categories=Settings;HardwareSettings;
-Keywords=redragon;rgb;mouse;led;m711;
+Keywords=redragon;rgb;mouse;keyboard;led;m711;k556;
