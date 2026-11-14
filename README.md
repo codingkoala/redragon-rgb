@@ -23,7 +23,8 @@ No vendor software, no Windows, no pip dependencies.
 - **Keyboard per-key colors:** click or drag on the keys in the preview to paint them
 - Color picker with quick presets, speed and brightness sliders; colors are gamma-corrected so
   the LEDs match what you see on screen
-- Optional live apply; the last settings of each device are remembered
+- Optional live apply; at startup the mouse page shows what is actually stored in the mouse
+  (the keyboard page shows the last settings applied by the app)
 - Settings are stored in the devices' own memory (all 5 mouse profiles), so they persist across
   reboots and on other computers
 
@@ -58,6 +59,7 @@ redragon-rgb-cli keyboard static -c 2f6bff -b 4
 redragon-rgb-cli keyboard off
 redragon-rgb-cli keyboard custom --fill 2f6bff --key w=ff1e3c --key a=ff1e3c --key s=ff1e3c --key d=ff1e3c
 redragon-rgb-cli list-keys      # key names for --key
+redragon-rgb-cli status         # lighting and DPI currently stored in the mouse
 redragon-rgb-cli mouse-dpi      # show DPI levels and report rate of every profile
 redragon-rgb-cli mouse-dpi --profile 1 --levels 400,800,1600,3200,6400 --enabled 1,1,1,1,0 --poll 1000
 redragon-rgb-cli mouse-profile 2
@@ -112,7 +114,7 @@ To check what a code does on your keyboard: `redragon-rgb-cli probe-keyboard 0x0
 
 - [x] K556 keyboard (effects)
 - [x] K556 per-key colors
-- [ ] Read the current state back from the mouse
+- [x] Read the current mouse lighting and DPI back at startup
 - [x] Mouse DPI levels, report rate and active profile
 - [ ] Per-profile lighting
 

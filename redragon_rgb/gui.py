@@ -655,7 +655,33 @@ class DevicePage(Gtk.Box):
     # -- device --------------------------------------------------------
     def refresh(self):
         self.device_name = self.backend.detect()
+        if self.device_name and self.backend._read is not None:
+            self._read_from_device()
         return self.device_name
+
+    def _read_from_device(self):
+        """Show what is stored on the device instead of the last saved settings."""
+        base = self.settings.copy()
+
+        def worker():
+            try:
+                read = self.backend.read(base)
+            except BackendError:
+                read = None
+            GLib.idle_add(self._show_read, read)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _show_read(self, read):
+        if read is not None and read.effect in self.backend.effects_by_key and read != self.settings:
+            self.settings = read
+            self._loading = True
+            try:
+                self._load_into_widgets()
+            finally:
+                self._loading = False
+            config.save(self.backend.key, self.settings)
+        return False
 
     def apply(self, show_toast: bool):
         s = self.settings.copy()

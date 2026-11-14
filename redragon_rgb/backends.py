@@ -25,6 +25,12 @@ def led_rgb(hex_color: str) -> tuple[int, int, int]:
     return tuple(round(255 * (c / 255) ** LED_GAMMA) for c in hex_to_rgb(hex_color))  # type: ignore[return-value]
 
 
+def screen_hex(rgb: tuple[int, int, int]) -> str:
+    """Inverse of led_rgb: LED drive levels -> screen color."""
+    from .config import rgb_to_hex
+    return rgb_to_hex(tuple(round(255 * (c / 255) ** (1 / LED_GAMMA)) for c in rgb))
+
+
 class BackendError(Exception):
     """Wraps driver errors. kind: "notfound" | "permission" | "other"."""
 
@@ -43,6 +49,16 @@ class Backend:
     brightness_range: tuple[int, int]
     detect: Callable[[], str | None]  # device name, or None
     _apply: Callable[[Settings], None]
+    _read: Callable[[Settings], Settings | None] | None = None  # current state from the device
+
+    def read(self, base: Settings) -> Settings | None:
+        """Settings as stored on the device (fields it cannot report come from `base`)."""
+        if self._read is None:
+            return None
+        try:
+            return self._read(base)
+        except (mouse_drv.DeviceError, kb_drv.KeyboardError) as exc:
+            raise BackendError(str(exc)) from exc
 
     @property
     def effects_by_key(self) -> dict[str, Effect]:
@@ -76,6 +92,20 @@ def _apply_mouse(s: Settings) -> None:
         m.set_lighting(s.effect, led_rgb(s.color), s.speed, s.brightness)
 
 
+def _read_mouse(base: Settings) -> Settings | None:
+    with MOUSE_LOCK, mouse_drv.CobraMouse() as m:
+        lit = m.read_lighting()
+    if lit.effect is None:
+        return None
+    s = base.copy()
+    s.effect, s.speed, s.brightness = lit.effect, lit.speed, lit.brightness
+    # Colorless effects may store black: keep the last chosen color. Also keep
+    # it when it maps to exactly what is stored, so the round trip is lossless.
+    if any(lit.color) and led_rgb(base.color) != lit.color:
+        s.color = screen_hex(lit.color)
+    return s
+
+
 def _detect_keyboard():
     devs = kb_drv.find_keyboards()
     return devs[0].name if devs else None
@@ -91,7 +121,7 @@ def _apply_keyboard(s: Settings) -> None:
 
 BACKENDS = {
     "mouse": Backend("mouse", "Mouse", "input-mouse-symbolic", mouse_drv.EFFECTS,
-                     mouse_drv.SPEED_RANGE, mouse_drv.BRIGHTNESS_RANGE, _detect_mouse, _apply_mouse),
+                     mouse_drv.SPEED_RANGE, mouse_drv.BRIGHTNESS_RANGE, _detect_mouse, _apply_mouse, _read_mouse),
     "keyboard": Backend("keyboard", "Keyboard", "input-keyboard-symbolic", kb_drv.EFFECTS,
                         kb_drv.SPEED_RANGE, kb_drv.BRIGHTNESS_RANGE, _detect_keyboard, _apply_keyboard),
 }

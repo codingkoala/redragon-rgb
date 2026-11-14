@@ -108,6 +108,14 @@ class Profile:
 
 
 @dataclass
+class Lighting:
+    effect: str | None  # effect key, None if the firmware reports an unknown mode
+    color: tuple[int, int, int]  # LED drive levels, as stored
+    speed: int  # UI scale (higher = faster)
+    brightness: int
+
+
+@dataclass
 class MouseState:
     active_profile: int  # 0..4
     profiles: list[Profile]
@@ -301,8 +309,11 @@ class CobraMouse:
             self._handle, GET_REPORT_REQTYPE, GET_REPORT, wvalue, INTERFACE, buf, len(buf), TIMEOUT_MS)
         self._check(rc, None)
         raw = buf.raw[:rc]
-        # Header: <id> 08 <addr lo> <addr hi | 0x60> <count> 00 fa fa
-        if rc < REPLY_HEADER + count or raw[1] != 0x08 or raw[2] != address & 0xFF or raw[4] != count:
+        # Header: <id> 08 <addr lo> <addr hi> <count> 00 fa fa. The echoed address
+        # is not reliable (the firmware adds 0x6000 and clears bit 0 of odd
+        # addresses: 0x0449 comes back as 0x6448), so only marker and count
+        # are checked.
+        if rc < REPLY_HEADER + count or raw[1] != 0x08 or raw[4] != count:
             raise DeviceError(f"Unexpected reply from the mouse at 0x{address:04x}: {raw[:16].hex(' ')}")
         return raw[REPLY_HEADER : REPLY_HEADER + count]
 
@@ -343,6 +354,18 @@ class CobraMouse:
                     levels.append(DpiLevel(raw[b] != 0, code_to_dpi(raw[b + 1], raw[b + 2])))
                 profiles.append(Profile(levels, POLL_RATES.get(poll[2 * p])))
         return MouseState(min(active, PROFILES - 1), profiles)
+
+    def read_lighting(self) -> Lighting:
+        """Lighting of the active profile (this app writes the same to all five)."""
+        with self._session():
+            active = min(self._read(ADDR_ACTIVE_PROFILE, 1)[0], PROFILES - 1)
+            # R, G, B, mode1, speed, mode2, brightness (brightness is only
+            # readable here; it is written at ADDR_BRIGHTNESS)
+            led = self._read(ADDR_LED + PROFILE_STRIDE * active, 7)
+        effect = next((e.key for e in EFFECTS if e.code == (led[3], led[5])), None)
+        fw_speed = max(SPEED_RANGE[0], min(SPEED_RANGE[1], led[4]))
+        brightness = max(BRIGHTNESS_RANGE[0], min(BRIGHTNESS_RANGE[1], led[6]))
+        return Lighting(effect, (led[0], led[1], led[2]), SPEED_RANGE[0] + SPEED_RANGE[1] - fw_speed, brightness)
 
     def write_profile(self, profile: int, levels: list[DpiLevel], poll_rate: int | None = None) -> None:
         """Write the DPI levels (and optionally the report rate) of one profile."""

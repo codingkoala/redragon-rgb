@@ -6,7 +6,7 @@ import argparse
 import sys
 
 from . import config
-from .backends import BACKENDS, BackendError
+from .backends import BACKENDS, BackendError, screen_hex
 from . import device as mouse_drv
 from .config import Settings, hex_to_rgb
 from .keyboard import KEYS, KEYS_BY_NAME, KeyboardError, RedragonKeyboard
@@ -88,6 +88,7 @@ def main(argv: list[str] | None = None) -> int:
     dpi.add_argument("--poll", type=int, choices=sorted(mouse_drv.POLL_CODES), help="report rate in Hz")
     prof = sub.add_parser("mouse-profile", help="switch the active mouse profile")
     prof.add_argument("profile", type=int, choices=range(1, mouse_drv.PROFILES + 1))
+    sub.add_parser("status", help="show the lighting and DPI currently stored in the mouse")
     sub.add_parser("list-keys", help="list the key names usable with --key")
     sub.add_parser("restore", help="re-apply the last saved settings to every device")
     probe = sub.add_parser("probe-keyboard", help="diagnostics: send a raw mode code (0-20)")
@@ -120,6 +121,14 @@ def main(argv: list[str] | None = None) -> int:
                     hex_to_rgb(color)
             BACKENDS[args.cmd].apply(s)
             config.save(args.cmd, s)
+        elif args.cmd == "status":
+            with mouse_drv.CobraMouse() as m:
+                lit = m.read_lighting()
+                state = m.read_state()
+            print(f"lighting: {lit.effect or 'unknown mode'}  color {screen_hex(lit.color)}"
+                  f" (LED levels #{bytes(lit.color).hex()})"
+                  f"  speed {lit.speed}  brightness {lit.brightness}")
+            _print_state(state)
         elif args.cmd == "mouse-dpi":
             return _mouse_dpi(args)
         elif args.cmd == "mouse-profile":
