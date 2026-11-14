@@ -11,7 +11,7 @@ Protocol (from dokutan/mouse_m908, OpenRGB and SK2674/m711-port):
   * write    02 F3 <addr lo> <addr hi> <count> 00 00 00 <data...>
   * apply    02 F1 02 04
   * lock     02 F5 01            (every sequence must end with it)
-  * LED of profile n (0..4): 0x0449 + 8n -> R, G, B, mode1, speed, mode2
+  * LED of profile n (0..4): 0x0449 + 8n -> R, G, B, mode1, speed (1 fast - 8 slow), mode2
   * brightness of profile n:  0x044F + 8n -> 1 byte (1..3)
 
 Color, mode1 and mode2 are always written together: writing only the
@@ -258,8 +258,11 @@ class CobraMouse:
             effect = EFFECTS_BY_KEY[effect]
         r, g, b = (max(0, min(255, int(c))) for c in color)
         speed = max(SPEED_RANGE[0], min(SPEED_RANGE[1], int(speed)))
+        # UI speed grows with the animation speed; the firmware byte is the
+        # other way round (1 = fastest, 8 = slowest, verified on an M711).
+        fw_speed = SPEED_RANGE[0] + SPEED_RANGE[1] - speed
         brightness = max(BRIGHTNESS_RANGE[0], min(BRIGHTNESS_RANGE[1], int(brightness)))
-        led = bytes([r, g, b, effect.code[0], speed, effect.code[1]])
+        led = bytes([r, g, b, effect.code[0], fw_speed, effect.code[1]])
 
         self._lock(False)
         try:
