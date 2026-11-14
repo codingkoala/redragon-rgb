@@ -11,6 +11,19 @@ from .config import Settings, hex_to_rgb
 from .effects import Effect
 
 
+LED_GAMMA = 2.2
+
+
+def led_rgb(hex_color: str) -> tuple[int, int, int]:
+    """Screen color -> LED drive levels.
+
+    LEDs respond roughly linearly to the PWM value, while screen colors are
+    gamma-encoded, so small channel values (e.g. the red in #2f6bff) look far
+    stronger on the device than on screen. Undo the gamma so they match.
+    """
+    return tuple(round(255 * (c / 255) ** LED_GAMMA) for c in hex_to_rgb(hex_color))  # type: ignore[return-value]
+
+
 class BackendError(Exception):
     """Wraps driver errors. kind: "notfound" | "permission" | "other"."""
 
@@ -55,7 +68,7 @@ def _detect_mouse():
 
 def _apply_mouse(s: Settings) -> None:
     with mouse_drv.CobraMouse() as m:
-        m.set_lighting(s.effect, hex_to_rgb(s.color), s.speed, s.brightness)
+        m.set_lighting(s.effect, led_rgb(s.color), s.speed, s.brightness)
 
 
 def _detect_keyboard():
@@ -65,7 +78,7 @@ def _detect_keyboard():
 
 def _apply_keyboard(s: Settings) -> None:
     with kb_drv.RedragonKeyboard() as k:
-        k.set_lighting(s.effect, hex_to_rgb(s.color), s.speed, s.brightness, s.direction, s.multicolor)
+        k.set_lighting(s.effect, led_rgb(s.color), s.speed, s.brightness, s.direction, s.multicolor)
 
 
 BACKENDS = {

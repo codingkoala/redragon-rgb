@@ -8,7 +8,7 @@ No vendor software, no Windows, no pip dependencies.
 |---|---|---|
 | M711 Cobra | `04d9:fc30` | tested |
 | M711-FPS-1 Cobra FPS | `04d9:fc62` | untested |
-| K556 (EVision controller) | `320f:5000` | being tested |
+| K556 (EVision controller) | `320f:5000` | tested (static); other effects being verified |
 | K556 (SONiX controller) | `0c45:5004` | untested |
 
 ## Features
@@ -17,7 +17,8 @@ No vendor software, no Windows, no pip dependencies.
 - **Mouse:** static, breathing, flashing, rainbow, rainbow breathing, wave, reactive, off
 - **Keyboard:** static, breathing, wave, vertical rainbow, rainbow circle, hurricane, accumulate,
   starlight (fast/slow), visor, ripple, reactive line, off — single color or multicolor, with direction
-- Color picker with quick presets, speed and brightness sliders
+- Color picker with quick presets, speed and brightness sliders; colors are gamma-corrected so
+  the LEDs match what you see on screen
 - Optional live apply; the last settings of each device are remembered
 - Settings are stored in the devices' own memory (all 5 mouse profiles), so they persist across
   reboots and on other computers
