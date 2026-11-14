@@ -40,14 +40,18 @@ SPEED_RANGE = (1, 6)  # UI scale, slow -> fast; mapped to firmware 5..0
 BRIGHTNESS_RANGE = (1, 4)
 DIRECTION_CODES = {"left": 0, "right": 1, "up": 2, "down": 3}
 
-# Only mode codes on which OpenRGB's generic EVision driver and the
-# hardware-probed K556 controller (syndicalt/openrgb-reddragonk556-controller)
-# agree. Codes 0x01, 0x03, 0x04, 0x07, 0x0B, 0x11 differ between firmwares
-# and are not exposed until probed on real hardware.
+# Mode codes verified on a K556 with the EVision controller (320f:5000); they
+# match OpenRGB's generic EVision table. The SONiX revision (0c45:5004) uses a
+# different table for 0x01, 0x03, 0x04, 0x07 and 0x0B
+# (see syndicalt/openrgb-reddragonk556-controller).
 EFFECTS: list[Effect] = [
     Effect("static", "Static", "Solid color", (0x06,), True, False, "optional"),
     Effect("breathing", "Breathing", "The color slowly pulses", (0x05,), True, True, "optional"),
     Effect("wave", "Wave", "Flowing wave of color", (0x02,), True, True, "optional", "lr"),
+    Effect("wave_short", "Short wave", "Narrow wave of color", (0x01,), True, True, "optional", "lr"),
+    Effect("spectrum", "Spectrum cycle", "The whole keyboard slowly cycles through colors", (0x04,), False, True, "always"),
+    Effect("rain", "Rain", "Light drops falling down the columns", (0x03,), True, True, "optional"),
+    Effect("blooming", "Blooming", "Every key slowly cycles its own random color", (0x0B,), False, True, "always"),
     Effect("vertical_rainbow", "Vertical rainbow", "Rainbow moving up or down", (0x0C,), False, True, "always", "ud"),
     Effect("rainbow_circle", "Rainbow circle", "Color rings spreading from the centre", (0x12,), False, True, "always"),
     Effect("hurricane", "Hurricane", "Swirl of color", (0x0D,), True, True, "optional"),
@@ -55,6 +59,7 @@ EFFECTS: list[Effect] = [
     Effect("starlight", "Starlight", "Random twinkling keys", (0x0A,), True, True, "optional"),
     Effect("starlight_slow", "Starlight (slow)", "Calmer twinkling", (0x0F,), True, True, "optional"),
     Effect("visor", "Visor", "A bar sweeping back and forth", (0x10,), True, True, "optional"),
+    Effect("reactive", "Reactive", "The pressed key lights up, then fades", (0x07,), True, True, "optional"),
     Effect("ripple", "Ripple", "Ring spreading from the pressed key", (0x08,), True, True, "optional"),
     Effect("reactive_line", "Reactive line", "Line running from the pressed key", (0x09,), True, True, "optional"),
     Effect("off", "Off", "LEDs off", (0x06,), is_off=True),

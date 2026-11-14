@@ -8,14 +8,14 @@ No vendor software, no Windows, no pip dependencies.
 |---|---|---|
 | M711 Cobra | `04d9:fc30` | tested |
 | M711-FPS-1 Cobra FPS | `04d9:fc62` | untested |
-| K556 (EVision controller) | `320f:5000` | tested (static); other effects being verified |
+| K556 (EVision controller) | `320f:5000` | tested |
 | K556 (SONiX controller) | `0c45:5004` | untested |
 
 ## Features
 
 - One tab per device (Mouse / Keyboard) with an animated preview of the effect
 - **Mouse:** static, breathing, flashing, rainbow, rainbow breathing, wave, reactive, off
-- **Keyboard:** static, breathing, wave, vertical rainbow, rainbow circle, hurricane, accumulate,
+- **Keyboard:** static, breathing, wave, short wave, spectrum cycle, rain, blooming, reactive, vertical rainbow, rainbow circle, hurricane, accumulate,
   starlight (fast/slow), visor, ripple, reactive line, off — single color or multicolor, with direction
 - Color picker with quick presets, speed and brightness sliders; colors are gamma-corrected so
   the LEDs match what you see on screen
@@ -86,10 +86,10 @@ hidraw, with a checksum of bytes 3–63; the keyboard acknowledges every packet.
 wrapped in `begin` (`0x01`) / `end` (`0x02`); parameter 0 sets mode, brightness (0–4),
 speed (5 slow → 0 fast), direction, multicolor flag and RGB.
 
-Mode codes differ between firmware revisions. Only the codes on which OpenRGB's EVision driver
-and the hardware-probed controller from
-[syndicalt/openrgb-reddragonk556-controller](https://github.com/syndicalt/openrgb-reddragonk556-controller)
-agree are exposed. To map the others on your keyboard: `redragon-rgb-cli probe-keyboard 0x04`.
+Mode codes differ between firmware revisions. The ones used here were verified on a K556 with
+the EVision controller and match OpenRGB's EVision table; the SONiX revision maps several codes
+differently (see [syndicalt/openrgb-reddragonk556-controller](https://github.com/syndicalt/openrgb-reddragonk556-controller)).
+To check what a code does on your keyboard: `redragon-rgb-cli probe-keyboard 0x04`.
 
 ## Roadmap
 

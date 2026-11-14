@@ -276,6 +276,25 @@ def keyboard_led(s: Settings, t: float, x: float, y: float, seed: float, hit: fl
         if multi:
             return (*_hsv(v), 1)
         return (*base, 0.15 + 0.85 * (0.5 + 0.5 * math.sin(v * 2 * math.pi)))
+    if e == "wave_short":
+        v = (x * 3.2 + sign * t * rate * 0.6)
+        if multi:
+            return (*_hsv(v), 1)
+        return (*base, 0.1 + 0.9 * max(0.0, math.sin(v * 2 * math.pi)) ** 2)
+    if e == "spectrum":
+        return (*_hsv(t * rate * 0.12), 1)
+    if e == "rain":
+        col = round(x * 22)
+        cs = _hash(col, 5.1)
+        drop = (t * rate * (0.35 + 0.3 * cs) + cs) % 1.4 - 0.2
+        i = max(0.0, 1 - (drop - y) * 4) if drop >= y else 0.0
+        return (*pick(cs), 0.04 + 0.96 * i)
+    if e == "blooming":
+        return (*_hsv(seed + t * rate * 0.04 * (0.5 + seed)), 1)
+    if e == "reactive":
+        d = math.hypot((x - hit_pos[0]) * 2.4, y - hit_pos[1])
+        i = max(0.0, 1 - hit * 0.7) if d < 0.07 else 0.0
+        return (*pick(seed), 0.04 + 0.96 * i)
     if e == "vertical_rainbow":
         return (*_hsv(y * 0.9 + sign * t * rate * 0.4), 1)
     if e == "rainbow_circle":
