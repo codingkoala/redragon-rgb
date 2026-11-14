@@ -8,7 +8,7 @@ import sys
 from . import config
 from .backends import BACKENDS, BackendError
 from .config import Settings, hex_to_rgb
-from .keyboard import KeyboardError, RedragonKeyboard
+from .keyboard import KEYS, KEYS_BY_NAME, KeyboardError, RedragonKeyboard
 
 
 def _add_set_parser(sub, key: str) -> None:
@@ -23,6 +23,9 @@ def _add_set_parser(sub, key: str) -> None:
     if key == "keyboard":
         p.add_argument("-d", "--direction", choices=["left", "right", "up", "down"], default="left")
         p.add_argument("-m", "--multicolor", action="store_true", help="random / rainbow colors")
+        p.add_argument("--fill", metavar="HEX", help="custom: paint every key with this color")
+        p.add_argument("--key", metavar="NAME=HEX", action="append", default=[],
+                       help="custom: paint one key, e.g. --key w=ff0000 (repeatable; see list-keys)")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -32,6 +35,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("list", help="list detected devices")
     _add_set_parser(sub, "mouse")
     _add_set_parser(sub, "keyboard")
+    sub.add_parser("list-keys", help="list the key names usable with --key")
     sub.add_parser("restore", help="re-apply the last saved settings to every device")
     probe = sub.add_parser("probe-keyboard", help="diagnostics: send a raw mode code (0-20)")
     probe.add_argument("code", type=lambda v: int(v, 0))
@@ -50,8 +54,21 @@ def main(argv: list[str] | None = None) -> int:
             s = Settings(args.effect, "#" + args.color.lstrip("#"), args.speed, args.brightness,
                          getattr(args, "direction", "left"), getattr(args, "multicolor", False))
             hex_to_rgb(s.color)
+            if args.cmd == "keyboard" and args.effect == "custom":
+                s.keys = {} if args.fill else dict(config.load("keyboard").keys)
+                if args.fill:
+                    s.keys = {k.name: "#" + args.fill.lstrip("#") for k in KEYS}
+                for item in args.key:
+                    name, _, color = item.partition("=")
+                    if name not in KEYS_BY_NAME:
+                        raise ValueError(f"unknown key '{name}' (see list-keys)")
+                    s.keys[name] = "#" + color.lstrip("#")
+                for color in s.keys.values():
+                    hex_to_rgb(color)
             BACKENDS[args.cmd].apply(s)
             config.save(args.cmd, s)
+        elif args.cmd == "list-keys":
+            print(" ".join(k.name for k in KEYS))
         elif args.cmd == "restore":
             rc = 0
             for key, b in BACKENDS.items():

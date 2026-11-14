@@ -7,12 +7,17 @@ packet with a 64-byte input report.
 Packet layout (from OpenRGB's EVisionKeyboardController):
   [0]    0x04 report id
   [1..2] checksum (little endian) of bytes 3..63
-  [3]    command (0x01 begin, 0x02 end, 0x06 set parameter)
+  [3]    command (0x01 begin, 0x02 end, 0x06 set parameter,
+         0x11 write custom colors)
   [4]    data length
-  [5]    parameter / offset
+  [5..6] parameter / byte offset (little endian)
   [8..]  data
 Set-parameter 0 with 8 bytes = mode, brightness (0-4), speed (5 slow - 0 fast),
 direction, random-color flag, R, G, B.
+
+Per-key colors: select the Custom mode (0x14), then write 126 LEDs x RGB in
+54-byte chunks with command 0x11 at increasing offsets. LED n sits at
+row * 21 + column on a 6 x 21 grid (OpenRGB's EVision matrix map).
 """
 
 from __future__ import annotations
@@ -35,6 +40,10 @@ REPORT_ID = 0x04
 CMD_BEGIN = 0x01
 CMD_END = 0x02
 CMD_SET_PARAMETER = 0x06
+CMD_WRITE_CUSTOM_COLORS = 0x11
+MODE_CUSTOM = 0x14
+LED_COUNT = 126
+COLOR_CHUNK = 0x36
 
 SPEED_RANGE = (1, 6)  # UI scale, slow -> fast; mapped to firmware 5..0
 BRIGHTNESS_RANGE = (1, 4)
@@ -52,6 +61,7 @@ DIRECTION_CODES = {
 # (see syndicalt/openrgb-reddragonk556-controller).
 EFFECTS: list[Effect] = [
     Effect("static", "Static", "Solid color", (0x06,), True, False, "optional"),
+    Effect("custom", "Custom (per key)", "Paint each key with its own color", (MODE_CUSTOM,), True, False),
     Effect("breathing", "Breathing", "The color slowly pulses", (0x05,), True, True, "optional"),
     Effect("wave", "Wave", "Flowing wave of color", (0x02,), True, True, "optional", "lr"),
     Effect("wave_short", "Short wave", "Narrow wave of color", (0x01,), True, True, "optional", "lr"),
@@ -71,6 +81,71 @@ EFFECTS: list[Effect] = [
     Effect("off", "Off", "LEDs off", (0x06,), is_off=True),
 ]
 EFFECTS_BY_KEY = {e.key: e for e in EFFECTS}
+
+
+@dataclass(frozen=True)
+class Key:
+    name: str
+    label: str
+    x: float  # position and size in key units
+    y: float
+    w: float
+    h: float
+    led: int
+
+
+def _build_layout() -> list[Key]:
+    """K556 (full-size ANSI, 104 keys) with the firmware LED index of each key."""
+    keys: list[Key] = []
+
+    def row(y, items):
+        x = 0.0
+        for item in items:
+            if item[0] is None:
+                x += item[1]
+                continue
+            name, label, led, *size = item
+            w = size[0] if size else 1
+            h = size[1] if len(size) > 1 else 1
+            keys.append(Key(name, label, x, y, w, h, led))
+            x += w
+
+    def gap(n):
+        return (None, n)
+
+    def letters(chars, first_led):
+        return [(c, c.upper(), first_led + i) for i, c in enumerate(chars)]
+
+    row(0, [("esc", "Esc", 0), gap(1),
+            ("f1", "F1", 1), ("f2", "F2", 2), ("f3", "F3", 3), ("f4", "F4", 4), gap(0.5),
+            ("f5", "F5", 5), ("f6", "F6", 6), ("f7", "F7", 7), ("f8", "F8", 8), gap(0.5),
+            ("f9", "F9", 9), ("f10", "F10", 10), ("f11", "F11", 11), ("f12", "F12", 12), gap(0.25),
+            ("prtsc", "PrtSc", 14), ("scrlk", "ScrLk", 15), ("pause", "Pause", 16)])
+    row(1.25, [("grave", "`", 21)] + [(str(d % 10), str(d % 10), 21 + d) for d in range(1, 11)] +
+        [("minus", "-", 32), ("equal", "=", 33), ("backspace", "Bksp", 34, 2), gap(0.25),
+         ("insert", "Ins", 35), ("home", "Home", 36), ("pgup", "PgUp", 37), gap(0.25),
+         ("numlock", "Num", 38), ("kp_divide", "/", 39), ("kp_multiply", "*", 40), ("kp_minus", "-", 41)])
+    row(2.25, [("tab", "Tab", 42, 1.5)] + letters("qwertyuiop", 43) +
+        [("lbracket", "[", 53), ("rbracket", "]", 54), ("backslash", "\\", 55, 1.5), gap(0.25),
+         ("delete", "Del", 56), ("end", "End", 57), ("pgdn", "PgDn", 58), gap(0.25),
+         ("kp7", "7", 59), ("kp8", "8", 60), ("kp9", "9", 61), ("kp_plus", "+", 62, 1, 2)])
+    row(3.25, [("capslock", "Caps", 63, 1.75)] + letters("asdfghjkl", 64) +
+        [("semicolon", ";", 73), ("quote", "'", 74), ("enter", "Enter", 76, 2.25), gap(3.5),
+         ("kp4", "4", 80), ("kp5", "5", 81), ("kp6", "6", 82)])
+    row(4.25, [("lshift", "Shift", 84, 2.25)] + letters("zxcvbnm", 86) +
+        [("comma", ",", 93), ("period", ".", 94), ("slash", "/", 95), ("rshift", "Shift", 97, 2.75), gap(1.25),
+         ("up", "\u2191", 99), gap(1.25),
+         ("kp1", "1", 101), ("kp2", "2", 102), ("kp3", "3", 103), ("kp_enter", "Ent", 104, 1, 2)])
+    row(5.25, [("lctrl", "Ctrl", 105, 1.25), ("lwin", "Win", 106, 1.25), ("lalt", "Alt", 107, 1.25),
+               ("space", "", 108, 6.25), ("ralt", "Alt", 109, 1.25), ("fn", "Fn", 110, 1.25),
+               ("menu", "Menu", 111, 1.25), ("rctrl", "Ctrl", 113, 1.25), gap(0.25),
+               ("left", "\u2190", 119), ("down", "\u2193", 120), ("right", "\u2192", 121), gap(0.25),
+               ("kp0", "0", 123, 2), ("kp_period", ".", 124)])
+    return keys
+
+
+KEYS: list[Key] = _build_layout()
+KEYS_BY_NAME = {k.name: k for k in KEYS}
 
 
 class KeyboardError(Exception):
@@ -154,7 +229,8 @@ class RedragonKeyboard:
         buf[0] = REPORT_ID
         buf[3] = command
         buf[4] = len(data)
-        buf[5] = parameter
+        buf[5] = parameter & 0xFF
+        buf[6] = parameter >> 8
         buf[8 : 8 + len(data)] = data
         _checksum(buf)
         try:
@@ -198,6 +274,23 @@ class RedragonKeyboard:
             self._transfer(CMD_SET_PARAMETER, 0x00, data)
         finally:
             self._transfer(CMD_END, 0x00, b"")
+
+    def set_custom(self, colors: dict[str, tuple[int, int, int]], brightness: int = 4) -> None:
+        """Per-key colors: key name -> RGB. Keys not listed are turned off."""
+        data = bytearray(LED_COUNT * 3)
+        for name, rgb in colors.items():
+            key = KEYS_BY_NAME.get(name)
+            if key is None:
+                raise ValueError(f"Unknown key: {name}")
+            data[3 * key.led : 3 * key.led + 3] = bytes(max(0, min(255, int(c))) for c in rgb)
+        fw_brightness = max(BRIGHTNESS_RANGE[0], min(BRIGHTNESS_RANGE[1], int(brightness)))
+        self._transfer(CMD_BEGIN, 0x00, b"")
+        try:
+            self._transfer(CMD_SET_PARAMETER, 0x00, bytes([MODE_CUSTOM, fw_brightness, 0, 0, 0, 0, 0, 0]))
+        finally:
+            self._transfer(CMD_END, 0x00, b"")
+        for offset in range(0, len(data), COLOR_CHUNK):
+            self._transfer(CMD_WRITE_CUSTOM_COLORS, offset, bytes(data[offset : offset + COLOR_CHUNK]))
 
     def send_raw_mode(self, code: int, color=(255, 255, 255), speed: int = 3, brightness: int = 4,
                       direction: int = 0) -> None:

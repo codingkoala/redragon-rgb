@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, field, fields, replace
 from pathlib import Path
 
 CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "redragon-rgb"
@@ -19,11 +19,18 @@ class Settings:
     brightness: int = 3
     direction: str = "left"
     multicolor: bool = False
+    keys: dict[str, str] = field(default_factory=dict)  # per-key colors (custom effect)
+
+    def copy(self) -> "Settings":
+        return replace(self, keys=dict(self.keys))
 
     @classmethod
     def from_dict(cls, data: dict) -> "Settings":
         names = {f.name for f in fields(cls)}
-        return cls(**{k: v for k, v in data.items() if k in names})
+        s = cls(**{k: v for k, v in data.items() if k in names})
+        if not isinstance(s.keys, dict):
+            s.keys = {}
+        return s
 
 
 DEFAULTS = {
@@ -51,7 +58,7 @@ def load(device: str) -> Settings:
             return Settings.from_dict(data)
         except TypeError:
             pass
-    return Settings(**asdict(DEFAULTS[device]))
+    return DEFAULTS[device].copy()
 
 
 def save(device: str, settings: Settings) -> None:

@@ -18,6 +18,7 @@ from . import __version__, config  # noqa: E402
 from .backends import BACKENDS, Backend, BackendError  # noqa: E402
 from .config import Settings, hex_to_rgb, rgb_to_hex  # noqa: E402
 from .effects import DIRECTIONS  # noqa: E402
+from .keyboard import KEYS as KB_KEYS  # noqa: E402
 
 APP_ID = "io.github.codingkoala.RedragonRGB"
 PRESETS = ["#ff1e3c", "#ff7a00", "#ffd000", "#3cff6e", "#00e5ff", "#2f6bff", "#9b4dff", "#ff3df2", "#ffffff"]
@@ -222,33 +223,8 @@ class MousePreview(Preview):
         cr.fill()
 
 
-def _build_keyboard_layout():
-    """Full-size ANSI layout as (x, y, w, h) in key units."""
-    keys = []
-
-    def row(y, items, x=0.0):
-        for item in items:
-            if isinstance(item, tuple) and item[0] == "gap":
-                x += item[1]
-                continue
-            w, h = (item, 1) if not isinstance(item, tuple) else item
-            keys.append((x, y, w, h))
-            x += w
-
-    row(0, [1, ("gap", 1), 1, 1, 1, 1, ("gap", 0.5), 1, 1, 1, 1, ("gap", 0.5), 1, 1, 1, 1,
-            ("gap", 0.25), 1, 1, 1])
-    y = 1.25
-    row(y, [1] * 13 + [2, ("gap", 0.25), 1, 1, 1, ("gap", 0.25), 1, 1, 1, 1])
-    row(y + 1, [1.5] + [1] * 12 + [1.5, ("gap", 0.25), 1, 1, 1, ("gap", 0.25), 1, 1, 1, (1, 2)])
-    row(y + 2, [1.75] + [1] * 11 + [2.25, ("gap", 3.5), 1, 1, 1])
-    row(y + 3, [2.25] + [1] * 10 + [2.75, ("gap", 1.25), 1, ("gap", 1.25), 1, 1, 1, (1, 2)])
-    row(y + 4, [1.25, 1.25, 1.25, 6.25, 1.25, 1.25, 1.25, 1.25, ("gap", 0.25), 1, 1, 1, ("gap", 0.25), 2, 1])
-    return keys
-
-
-KEYS = _build_keyboard_layout()
-KB_W = max(x + w for x, _, w, _ in KEYS)
-KB_H = max(y + h for _, y, _, h in KEYS)
+KB_W = max(k.x + k.w for k in KB_KEYS)
+KB_H = max(k.y + k.h for k in KB_KEYS)
 
 
 def keyboard_led(s: Settings, t: float, x: float, y: float, seed: float, hit: float, hit_pos):
@@ -331,7 +307,59 @@ def keyboard_led(s: Settings, t: float, x: float, y: float, seed: float, hit: fl
     return (*base, 1)
 
 
+ARROWS = {"\u2191": -math.pi / 2, "\u2193": math.pi / 2, "\u2190": math.pi, "\u2192": 0.0}
+
+
+def _arrow(cr, cx, cy, size, angle):
+    """Filled triangle pointing at `angle` (cairo's toy text API has no glyph fallback)."""
+    pts = [(size, 0), (-size * 0.7, -size * 0.8), (-size * 0.7, size * 0.8)]
+    ca, sa = math.cos(angle), math.sin(angle)
+    for n, (x, y) in enumerate(pts):
+        (cr.move_to if n == 0 else cr.line_to)(cx + x * ca - y * sa, cy + x * sa + y * ca)
+    cr.close_path()
+    cr.fill()
+
+
 class KeyboardPreview(Preview):
+    """Keyboard preview; in the custom effect, click or drag on keys to paint them."""
+
+    def __init__(self):
+        super().__init__()
+        self.on_paint = None  # callback(key_name), set by the page
+        self._geom = None
+        self._painted = set()
+        drag = Gtk.GestureDrag()
+        drag.connect("drag-begin", self._drag_begin)
+        drag.connect("drag-update", self._drag_update)
+        self.add_controller(drag)
+        self._drag_origin = (0, 0)
+
+    def key_at(self, px, py):
+        if not self._geom:
+            return None
+        ox, oy, unit = self._geom
+        x, y = (px - ox) / unit, (py - oy) / unit
+        for k in KB_KEYS:
+            if k.x <= x < k.x + k.w and k.y <= y < k.y + k.h:
+                return k.name
+        return None
+
+    def _paint_at(self, px, py):
+        if self.s.effect != "custom" or not self.on_paint:
+            return
+        name = self.key_at(px, py)
+        if name and name not in self._painted:
+            self._painted.add(name)
+            self.on_paint(name)
+
+    def _drag_begin(self, _g, x, y):
+        self._painted = set()
+        self._drag_origin = (x, y)
+        self._paint_at(x, y)
+
+    def _drag_update(self, _g, dx, dy):
+        self._paint_at(self._drag_origin[0] + dx, self._drag_origin[1] + dy)
+
     def draw_scene(self, cr, w, h):
         s, t = self.s, self.t
         hit = t - self.last_hit
@@ -339,35 +367,48 @@ class KeyboardPreview(Preview):
         unit = min((w - 40) / (KB_W + 1), (h - 40) / (KB_H + 1))
         ox = (w - KB_W * unit) / 2
         oy = (h - KB_H * unit) / 2
+        self._geom = (ox, oy, unit)
         pad = unit * 0.5
+        custom = s.effect == "custom"
 
-        # chassis
         cr.set_source_rgb(0.07, 0.07, 0.09)
         _rounded(cr, ox - pad, oy - pad, KB_W * unit + 2 * pad, KB_H * unit + 2 * pad, unit * 0.4)
         cr.fill()
+        cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
 
-        for idx, (kx, ky, kw, kh) in enumerate(KEYS):
-            cx = (kx + kw / 2) / KB_W
-            cy = (ky + kh / 2) / KB_H
-            # hit position is in widget coords; convert to keyboard-normalised
-            hp = ((self.hit_pos[0] * w - ox) / (KB_W * unit), (self.hit_pos[1] * h - oy) / (KB_H * unit))
-            r, g, b, i = keyboard_led(s, t, cx, cy, _hash(idx, 0.37), hit, hp)
+        hp = ((self.hit_pos[0] * w - ox) / (KB_W * unit), (self.hit_pos[1] * h - oy) / (KB_H * unit))
+        for idx, k in enumerate(KB_KEYS):
+            if custom:
+                hexcol = s.keys.get(k.name)
+                r, g, b = (c / 255 for c in hex_to_rgb(hexcol)) if hexcol else (0, 0, 0)
+                i = 1.0 if (r or g or b) else 0.0
+            else:
+                cx = (k.x + k.w / 2) / KB_W
+                cy = (k.y + k.h / 2) / KB_H
+                r, g, b, i = keyboard_led(s, t, cx, cy, _hash(idx, 0.37), hit, hp)
             i *= bright
-            x0, y0 = ox + kx * unit, oy + ky * unit
-            kw_px, kh_px = kw * unit, kh * unit
-            # backlight bleed
-            cr.set_source_rgba(r, g, b, 0.5 * i)
+            x0, y0 = ox + k.x * unit, oy + k.y * unit
+            kw_px, kh_px = k.w * unit, k.h * unit
+            cr.set_source_rgba(r, g, b, 0.65 * i)
             _rounded(cr, x0 + 1, y0 + 1, kw_px - 2, kh_px - 2, unit * 0.12)
             cr.fill()
-            # keycap
             m = unit * 0.1
-            cr.set_source_rgba(0.12 + 0.2 * r * i, 0.12 + 0.2 * g * i, 0.14 + 0.2 * b * i, 1)
+            cr.set_source_rgba(0.1 + 0.62 * r * i, 0.1 + 0.62 * g * i, 0.12 + 0.62 * b * i, 1)
             _rounded(cr, x0 + m, y0 + m, kw_px - 2 * m, kh_px - 2 * m, unit * 0.1)
             cr.fill()
-            # legend glow
-            cr.set_source_rgba(r, g, b, 0.85 * i)
-            cr.rectangle(x0 + kw_px / 2 - unit * 0.12, y0 + kh_px * 0.35, unit * 0.24, unit * 0.08)
-            cr.fill()
+            legend = (0.55 + 0.45 * max(r, 0.3) * i + 0.25 * (1 - i), 0.55 + 0.45 * max(g, 0.3) * i + 0.25 * (1 - i),
+                      0.58 + 0.42 * max(b, 0.3) * i + 0.25 * (1 - i), 0.95)
+            # legend, lit by the key's LED
+            if k.label in ARROWS:
+                cr.set_source_rgba(*legend)
+                _arrow(cr, x0 + kw_px / 2, y0 + kh_px / 2, unit * 0.16, ARROWS[k.label])
+            elif k.label:
+                cr.set_font_size(unit * (0.34 if len(k.label) <= 2 else 0.24))
+                ext = cr.text_extents(k.label)
+                cr.move_to(x0 + kw_px / 2 - ext.width / 2 - ext.x_bearing,
+                           y0 + kh_px / 2 - ext.height / 2 - ext.y_bearing)
+                cr.set_source_rgba(*legend)
+                cr.show_text(k.label)
 
 
 # --- generic device page -----------------------------------------------------
@@ -453,9 +494,21 @@ class DevicePage(Gtk.Box):
         color_group.add(self.swatch_row)
         page.add(color_group)
 
+        self.keys_group = None
+        if isinstance(self.preview, KeyboardPreview):
+            self.preview.on_paint = self._on_paint_key
+            self.keys_group = Adw.PreferencesGroup(
+                title="Per-key colors",
+                description="Click or drag on the keys in the preview to paint them with the LED color.")
+            for label, handler in (("Fill all keys", self._on_fill_all), ("Clear all keys", self._on_clear_all)):
+                row = Adw.ButtonRow(title=label)
+                row.connect("activated", handler)
+                self.keys_group.add(row)
+            page.add(self.keys_group)
+
         anim = Adw.PreferencesGroup(title="Animation")
-        self.speed_row, self.speed_scale = self._scale_row("Speed", *self.backend.speed_range)
-        self.bright_row, self.bright_scale = self._scale_row("Brightness", *self.backend.brightness_range)
+        self.speed_row, self.speed_scale = self._scale_row("Speed", *self.backend.speed_range, "speed")
+        self.bright_row, self.bright_scale = self._scale_row("Brightness", *self.backend.brightness_range, "brightness")
         self.dir_row = Adw.ComboRow(title="Direction")
         self.dir_row.connect("notify::selected", self._on_direction)
         anim.add(self.speed_row)
@@ -475,7 +528,7 @@ class DevicePage(Gtk.Box):
         page.add(apply_group)
         return page
 
-    def _scale_row(self, title, lo, hi):
+    def _scale_row(self, title, lo, hi, attr):
         row = Adw.ActionRow(title=title)
         scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, lo, hi, 1)
         scale.set_hexpand(True)
@@ -484,7 +537,9 @@ class DevicePage(Gtk.Box):
         scale.set_round_digits(0)
         for v in range(lo, hi + 1):
             scale.add_mark(v, Gtk.PositionType.BOTTOM, None)
-        scale.connect("value-changed", self._on_scale_changed)
+        # One handler per slider: a shared one would read the other slider
+        # while it still holds its initial minimum during startup.
+        scale.connect("value-changed", self._on_scale_changed, attr)
         row.add_suffix(scale)
         return row, scale
 
@@ -514,6 +569,8 @@ class DevicePage(Gtk.Box):
         self.bright_row.set_sensitive(not e.is_off)
         # direction choices depend on the effect
         self.dir_row.set_visible(e.direction is not None)
+        if self.keys_group is not None:
+            self.keys_group.set_visible(e.key == "custom")
         if e.direction:
             choices = DIRECTIONS[e.direction]
             keys = [k for k, _ in choices]
@@ -551,7 +608,21 @@ class DevicePage(Gtk.Box):
     def _on_effect_toggled(self, check, key):
         if check.get_active():
             self.settings.effect = key
+            if key == "custom" and not self.settings.keys:
+                self.settings.keys = {k.name: self.settings.color for k in KB_KEYS}
             self._changed()
+
+    def _on_paint_key(self, name):
+        self.settings.keys[name] = self.settings.color
+        self._changed()
+
+    def _on_fill_all(self, *_):
+        self.settings.keys = {k.name: self.settings.color for k in KB_KEYS}
+        self._changed()
+
+    def _on_clear_all(self, *_):
+        self.settings.keys = {}
+        self._changed()
 
     def _on_color_changed(self, button, _p):
         c = button.get_rgba()
@@ -563,9 +634,8 @@ class DevicePage(Gtk.Box):
         rgba.parse(hexcol)
         self.color_button.set_rgba(rgba)
 
-    def _on_scale_changed(self, _s):
-        self.settings.speed = int(round(self.speed_scale.get_value()))
-        self.settings.brightness = int(round(self.bright_scale.get_value()))
+    def _on_scale_changed(self, scale, attr):
+        setattr(self.settings, attr, int(round(scale.get_value())))
         self._changed()
 
     def _on_multi(self, row, _p):
@@ -587,7 +657,7 @@ class DevicePage(Gtk.Box):
         return self.device_name
 
     def apply(self, show_toast: bool):
-        s = Settings(**vars(self.settings))
+        s = self.settings.copy()
         config.save(self.backend.key, s)
 
         def worker():

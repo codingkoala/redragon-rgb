@@ -78,6 +78,9 @@ def _detect_keyboard():
 
 def _apply_keyboard(s: Settings) -> None:
     with kb_drv.RedragonKeyboard() as k:
+        if s.effect == "custom":
+            k.set_custom({name: led_rgb(c) for name, c in s.keys.items()}, s.brightness)
+            return
         k.set_lighting(s.effect, led_rgb(s.color), s.speed, s.brightness, s.direction, s.multicolor)
 
 

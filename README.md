@@ -17,6 +17,7 @@ No vendor software, no Windows, no pip dependencies.
 - **Mouse:** static, breathing, flashing, rainbow, rainbow breathing, wave, reactive, off
 - **Keyboard:** static, breathing, wave, short wave, spectrum cycle, rain, blooming, reactive, vertical rainbow, rainbow circle, hurricane, accumulate,
   starlight (fast/slow), visor, ripple, reactive line, off — single color or multicolor, with direction
+- **Keyboard per-key colors:** click or drag on the keys in the preview to paint them
 - Color picker with quick presets, speed and brightness sliders; colors are gamma-corrected so
   the LEDs match what you see on screen
 - Optional live apply; the last settings of each device are remembered
@@ -25,7 +26,7 @@ No vendor software, no Windows, no pip dependencies.
 
 ## Requirements
 
-Ubuntu 24.04+ or any distribution with GTK 4 and libadwaita ≥ 1.5:
+Ubuntu 24.04+ or any distribution with GTK 4 and libadwaita ≥ 1.6:
 
 ```sh
 sudo apt install python3-gi gir1.2-adw-1 libusb-1.0-0
@@ -52,6 +53,8 @@ redragon-rgb-cli mouse breathing -c ff1e3c -s 5
 redragon-rgb-cli keyboard wave -m -s 4 -d right
 redragon-rgb-cli keyboard static -c 2f6bff -b 4
 redragon-rgb-cli keyboard off
+redragon-rgb-cli keyboard custom --fill 2f6bff --key w=ff1e3c --key a=ff1e3c --key s=ff1e3c --key d=ff1e3c
+redragon-rgb-cli list-keys      # key names for --key
 redragon-rgb-cli restore        # re-apply the last saved settings to every device
 ```
 
@@ -95,7 +98,7 @@ To check what a code does on your keyboard: `redragon-rgb-cli probe-keyboard 0x0
 ## Roadmap
 
 - [x] K556 keyboard (effects)
-- [ ] K556 per-key colors
+- [x] K556 per-key colors
 - [ ] Read the current state back from the mouse
 - [ ] Per-profile settings and DPI
 
