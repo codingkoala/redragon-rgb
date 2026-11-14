@@ -35,6 +35,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("restore", help="re-apply the last saved settings to every device")
     probe = sub.add_parser("probe-keyboard", help="diagnostics: send a raw mode code (0-20)")
     probe.add_argument("code", type=lambda v: int(v, 0))
+    probe.add_argument("--dir", type=lambda v: int(v, 0), default=0, help="raw direction code (0-5)")
     args = parser.parse_args(argv)
 
     try:
@@ -65,7 +66,9 @@ def main(argv: list[str] | None = None) -> int:
             if not 0 <= args.code <= 0x14:
                 raise ValueError("code out of range (0x00-0x14)")
             with RedragonKeyboard() as k:
-                k.send_raw_mode(args.code)
+                if not 0 <= args.dir <= 5:
+                    raise ValueError("direction code out of range (0-5)")
+                k.send_raw_mode(args.code, direction=args.dir)
     except (BackendError, KeyboardError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

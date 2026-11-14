@@ -89,7 +89,8 @@ speed (5 slow → 0 fast), direction, multicolor flag and RGB.
 Mode codes differ between firmware revisions. The ones used here were verified on a K556 with
 the EVision controller and match OpenRGB's EVision table; the SONiX revision maps several codes
 differently (see [syndicalt/openrgb-reddragonk556-controller](https://github.com/syndicalt/openrgb-reddragonk556-controller)).
-To check what a code does on your keyboard: `redragon-rgb-cli probe-keyboard 0x04`.
+To check what a code does on your keyboard: `redragon-rgb-cli probe-keyboard 0x04`
+(add `--dir 0` or `--dir 1` to test the direction byte).
 
 ## Roadmap
 

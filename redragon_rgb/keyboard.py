@@ -38,9 +38,13 @@ CMD_SET_PARAMETER = 0x06
 
 SPEED_RANGE = (1, 6)  # UI scale, slow -> fast; mapped to firmware 5..0
 BRIGHTNESS_RANGE = (1, 4)
-# Firmware direction codes, as verified on a 320f:5000 K556 (0 moves the
-# wave to the right, 1 to the left; OpenRGB names them the other way round).
-DIRECTION_CODES = {"left": 1, "right": 0, "up": 2, "down": 3}
+# Firmware direction codes, verified on a 320f:5000 K556. The firmware only
+# understands 0 and 1 on either axis (2 and 3, as sent by OpenRGB, fall back
+# to the default): horizontal 0 = right, 1 = left; vertical 0 = down, 1 = up.
+DIRECTION_CODES = {
+    "lr": {"right": 0, "left": 1},
+    "ud": {"down": 0, "up": 1},
+}
 
 # Mode codes verified on a K556 with the EVision controller (320f:5000); they
 # match OpenRGB's generic EVision table. The SONiX revision (0c45:5004) uses a
@@ -183,10 +187,9 @@ class RedragonKeyboard:
             rnd = 1 if multicolor else 0
         else:
             rnd = 0
-        if effect.direction == "ud":
-            fw_dir = DIRECTION_CODES.get(direction, 2) if direction in ("up", "down") else 2
-        elif effect.direction == "lr":
-            fw_dir = DIRECTION_CODES.get(direction, 0) if direction in ("left", "right") else 0
+        if effect.direction:
+            codes = DIRECTION_CODES[effect.direction]
+            fw_dir = codes.get(direction, max(codes.values()))  # default: left / up
         else:
             fw_dir = 0
         data = bytes([effect.code[0], fw_brightness, fw_speed, fw_dir, rnd, r, g, b])
@@ -196,9 +199,10 @@ class RedragonKeyboard:
         finally:
             self._transfer(CMD_END, 0x00, b"")
 
-    def send_raw_mode(self, code: int, color=(255, 255, 255), speed: int = 3, brightness: int = 4) -> None:
-        """Diagnostics: send an arbitrary mode code (used to map firmware variants)."""
-        data = bytes([code, brightness, speed, 0, 0, *color])
+    def send_raw_mode(self, code: int, color=(255, 255, 255), speed: int = 3, brightness: int = 4,
+                      direction: int = 0) -> None:
+        """Diagnostics: send an arbitrary mode/direction code (used to map firmware variants)."""
+        data = bytes([code, brightness, speed, direction, 0, *color])
         self._transfer(CMD_BEGIN, 0x00, b"")
         try:
             self._transfer(CMD_SET_PARAMETER, 0x00, data)
