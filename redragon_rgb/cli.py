@@ -21,6 +21,9 @@ def _add_set_parser(sub, key: str) -> None:
     p.add_argument("-s", "--speed", type=int, default=(lo + hi) // 2, help=f"speed {lo}-{hi}")
     lo, hi = b.brightness_range
     p.add_argument("-b", "--brightness", type=int, default=hi, help=f"brightness {lo}-{hi}")
+    if key == "mouse":
+        p.add_argument("-p", "--profile", type=int, choices=range(1, 6),
+                       help="only this profile (default: all five)")
     if key == "keyboard":
         p.add_argument("-d", "--direction", choices=["left", "right", "up", "down"], default="left")
         p.add_argument("-m", "--multicolor", action="store_true", help="random / rainbow colors")
@@ -89,6 +92,11 @@ def main(argv: list[str] | None = None) -> int:
     prof = sub.add_parser("mouse-profile", help="switch the active mouse profile")
     prof.add_argument("profile", type=int, choices=range(1, mouse_drv.PROFILES + 1))
     sub.add_parser("status", help="show the lighting and DPI currently stored in the mouse")
+    wb = sub.add_parser("white-balance", help="show or set the per-channel LED gains of a device")
+    wb.add_argument("device", choices=list(BACKENDS))
+    wb.add_argument("gains", nargs="*", type=int, metavar="PERCENT",
+                    help="red green blue in percent (30-100), e.g. 90 100 85; 'reset' = 100 100 100")
+    wb.add_argument("--reset", action="store_true", help="back to 100 100 100")
     sub.add_parser("list-keys", help="list the key names usable with --key")
     sub.add_parser("restore", help="re-apply the last saved settings to every device")
     probe = sub.add_parser("probe-keyboard", help="diagnostics: send a raw mode code (0-20)")
@@ -107,6 +115,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd in BACKENDS:
             s = Settings(args.effect, "#" + args.color.lstrip("#"), args.speed, args.brightness,
                          getattr(args, "direction", "left"), getattr(args, "multicolor", False))
+            s.profile = getattr(args, "profile", None) or 0
             hex_to_rgb(s.color)
             if args.cmd == "keyboard" and args.effect == "custom":
                 s.keys = {} if args.fill else dict(config.load("keyboard").keys)
@@ -121,11 +130,23 @@ def main(argv: list[str] | None = None) -> int:
                     hex_to_rgb(color)
             BACKENDS[args.cmd].apply(s)
             config.save(args.cmd, s)
+        elif args.cmd == "white-balance":
+            if args.reset:
+                config.save_balance(args.device, config.NEUTRAL)
+            elif args.gains:
+                if len(args.gains) != 3 or not all(30 <= g <= 100 for g in args.gains):
+                    raise ValueError("give three values between 30 and 100 (red green blue)")
+                config.save_balance(args.device, tuple(g / 100 for g in args.gains))
+            gains = config.load_balance(args.device)
+            print(f"{args.device}: red {gains[0]:.0%}  green {gains[1]:.0%}  blue {gains[2]:.0%}")
+            if args.reset or args.gains:
+                print("re-apply the lighting (or run `restore`) to see the change")
         elif args.cmd == "status":
             with mouse_drv.CobraMouse() as m:
                 lit = m.read_lighting()
                 state = m.read_state()
-            print(f"lighting: {lit.effect or 'unknown mode'}  color {screen_hex(lit.color)}"
+            wb = config.load_balance("mouse")
+            print(f"lighting: {lit.effect or 'unknown mode'}  color {screen_hex(lit.color, wb)}"
                   f" (LED levels #{bytes(lit.color).hex()})"
                   f"  speed {lit.speed}  brightness {lit.brightness}")
             _print_state(state)

@@ -20,6 +20,7 @@ class Settings:
     direction: str = "left"
     multicolor: bool = False
     keys: dict[str, str] = field(default_factory=dict)  # per-key colors (custom effect)
+    profile: int = 0  # mouse: 0 = all profiles, 1-5 = only that profile
 
     def copy(self) -> "Settings":
         return replace(self, keys=dict(self.keys))
@@ -64,10 +65,37 @@ def load(device: str) -> Settings:
 def save(device: str, settings: Settings) -> None:
     data = _read_all()
     data[device] = asdict(settings)
+    _write_all(data)
+
+
+def _write_all(data: dict) -> None:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     tmp = CONFIG_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, indent=2))
     tmp.replace(CONFIG_FILE)
+
+
+Balance = tuple[float, float, float]
+NEUTRAL: Balance = (1.0, 1.0, 1.0)
+
+
+def load_balance(device: str) -> Balance:
+    """Per-channel LED gains (0.3-1.0) that make white look white on `device`."""
+    try:
+        r, g, b = (max(0.3, min(1.0, float(v))) for v in _read_all()["white_balance"][device])
+        return (r, g, b)
+    except (KeyError, TypeError, ValueError):
+        return NEUTRAL
+
+
+def save_balance(device: str, balance: Balance) -> None:
+    data = _read_all()
+    wb = data.get("white_balance")
+    if not isinstance(wb, dict):
+        wb = {}
+    wb[device] = [round(max(0.3, min(1.0, v)), 3) for v in balance]
+    data["white_balance"] = wb
+    _write_all(data)
 
 
 def hex_to_rgb(value: str) -> tuple[int, int, int]:

@@ -8,27 +8,30 @@ from typing import Callable
 
 from . import device as mouse_drv
 from . import keyboard as kb_drv
-from .config import Settings, hex_to_rgb
+from . import config
+from .config import NEUTRAL, Balance, Settings, hex_to_rgb, rgb_to_hex
 from .effects import Effect
 
 
 LED_GAMMA = 2.2
 
 
-def led_rgb(hex_color: str) -> tuple[int, int, int]:
+def led_rgb(hex_color: str, balance: Balance = NEUTRAL) -> tuple[int, int, int]:
     """Screen color -> LED drive levels.
 
     LEDs respond roughly linearly to the PWM value, while screen colors are
     gamma-encoded, so small channel values (e.g. the red in #2f6bff) look far
-    stronger on the device than on screen. Undo the gamma so they match.
+    stronger on the device than on screen. Undo the gamma so they match, then
+    apply the device's white balance (per-channel gains).
     """
-    return tuple(round(255 * (c / 255) ** LED_GAMMA) for c in hex_to_rgb(hex_color))  # type: ignore[return-value]
+    return tuple(round(255 * (c / 255) ** LED_GAMMA * g)
+                 for c, g in zip(hex_to_rgb(hex_color), balance))  # type: ignore[return-value]
 
 
-def screen_hex(rgb: tuple[int, int, int]) -> str:
+def screen_hex(rgb: tuple[int, int, int], balance: Balance = NEUTRAL) -> str:
     """Inverse of led_rgb: LED drive levels -> screen color."""
-    from .config import rgb_to_hex
-    return rgb_to_hex(tuple(round(255 * (c / 255) ** (1 / LED_GAMMA)) for c in rgb))
+    return rgb_to_hex(tuple(round(255 * min(1.0, c / 255 / g) ** (1 / LED_GAMMA))
+                            for c, g in zip(rgb, balance)))
 
 
 class BackendError(Exception):
@@ -87,22 +90,28 @@ def _detect_mouse():
 MOUSE_LOCK = threading.Lock()
 
 
+def _profiles(s: Settings) -> list[int] | None:
+    return None if not s.profile else [s.profile - 1]
+
+
 def _apply_mouse(s: Settings) -> None:
+    wb = config.load_balance("mouse")
     with MOUSE_LOCK, mouse_drv.CobraMouse() as m:
-        m.set_lighting(s.effect, led_rgb(s.color), s.speed, s.brightness)
+        m.set_lighting(s.effect, led_rgb(s.color, wb), s.speed, s.brightness, _profiles(s))
 
 
 def _read_mouse(base: Settings) -> Settings | None:
+    wb = config.load_balance("mouse")
     with MOUSE_LOCK, mouse_drv.CobraMouse() as m:
-        lit = m.read_lighting()
+        lit = m.read_lighting(base.profile - 1 if base.profile else None)
     if lit.effect is None:
         return None
     s = base.copy()
     s.effect, s.speed, s.brightness = lit.effect, lit.speed, lit.brightness
     # Colorless effects may store black: keep the last chosen color. Also keep
     # it when it maps to exactly what is stored, so the round trip is lossless.
-    if any(lit.color) and led_rgb(base.color) != lit.color:
-        s.color = screen_hex(lit.color)
+    if any(lit.color) and led_rgb(base.color, wb) != lit.color:
+        s.color = screen_hex(lit.color, wb)
     return s
 
 
@@ -112,11 +121,12 @@ def _detect_keyboard():
 
 
 def _apply_keyboard(s: Settings) -> None:
+    wb = config.load_balance("keyboard")
     with kb_drv.RedragonKeyboard() as k:
         if s.effect == "custom":
-            k.set_custom({name: led_rgb(c) for name, c in s.keys.items()}, s.brightness)
+            k.set_custom({name: led_rgb(c, wb) for name, c in s.keys.items()}, s.brightness)
             return
-        k.set_lighting(s.effect, led_rgb(s.color), s.speed, s.brightness, s.direction, s.multicolor)
+        k.set_lighting(s.effect, led_rgb(s.color, wb), s.speed, s.brightness, s.direction, s.multicolor)
 
 
 BACKENDS = {

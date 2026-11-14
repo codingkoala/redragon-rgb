@@ -355,13 +355,14 @@ class CobraMouse:
                 profiles.append(Profile(levels, POLL_RATES.get(poll[2 * p])))
         return MouseState(min(active, PROFILES - 1), profiles)
 
-    def read_lighting(self) -> Lighting:
-        """Lighting of the active profile (this app writes the same to all five)."""
+    def read_lighting(self, profile: int | None = None) -> Lighting:
+        """Lighting of `profile` (0-4), or of the active profile if None."""
         with self._session():
-            active = min(self._read(ADDR_ACTIVE_PROFILE, 1)[0], PROFILES - 1)
+            if profile is None:
+                profile = min(self._read(ADDR_ACTIVE_PROFILE, 1)[0], PROFILES - 1)
             # R, G, B, mode1, speed, mode2, brightness (brightness is only
             # readable here; it is written at ADDR_BRIGHTNESS)
-            led = self._read(ADDR_LED + PROFILE_STRIDE * active, 7)
+            led = self._read(ADDR_LED + PROFILE_STRIDE * profile, 7)
         effect = next((e.key for e in EFFECTS if e.code == (led[3], led[5])), None)
         fw_speed = max(SPEED_RANGE[0], min(SPEED_RANGE[1], led[4]))
         brightness = max(BRIGHTNESS_RANGE[0], min(BRIGHTNESS_RANGE[1], led[6]))
@@ -406,8 +407,12 @@ class CobraMouse:
         color: tuple[int, int, int] = (255, 30, 60),
         speed: int = 4,
         brightness: int = 3,
+        profiles: list[int] | None = None,
     ) -> None:
-        """Apply one lighting effect to all five profiles."""
+        """Apply one lighting effect to the given profiles (0-4), default all five."""
+        profiles = list(range(PROFILES)) if profiles is None else profiles
+        if not profiles or any(not 0 <= p < PROFILES for p in profiles):
+            raise ValueError(f"Profiles must be 1-{PROFILES}")
         if isinstance(effect, str):
             effect = EFFECTS_BY_KEY[effect]
         r, g, b = (max(0, min(255, int(c))) for c in color)
@@ -419,7 +424,7 @@ class CobraMouse:
         led = bytes([r, g, b, effect.code[0], fw_speed, effect.code[1]])
 
         with self._session():
-            for p in range(PROFILES):
+            for p in profiles:
                 self._write(ADDR_LED + PROFILE_STRIDE * p, led)
                 self._write(ADDR_BRIGHTNESS + PROFILE_STRIDE * p, bytes([brightness]))
             self._apply(0x04)

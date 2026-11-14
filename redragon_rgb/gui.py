@@ -455,6 +455,16 @@ class DevicePage(Gtk.Box):
     def _build_controls(self):
         page = Adw.PreferencesPage(width_request=440)
 
+        self.profile_row = None
+        if self.backend.key == "mouse":
+            target = Adw.PreferencesGroup()
+            self.profile_row = Adw.ComboRow(
+                title="Apply to", subtitle="Each mouse profile can have its own lighting",
+                model=Gtk.StringList.new(["All profiles"] + [f"Profile {i}" for i in range(1, 6)]))
+            self.profile_row.connect("notify::selected", self._on_target_profile)
+            target.add(self.profile_row)
+            page.add(target)
+
         effects = Adw.PreferencesGroup(title="Effect")
         self.effect_checks = {}
         leader = None
@@ -517,6 +527,29 @@ class DevicePage(Gtk.Box):
         anim.add(self.dir_row)
         page.add(anim)
 
+        wb_group = Adw.PreferencesGroup(
+            title="White balance",
+            description="If white looks tinted on the device, lower the channel that is too strong. "
+                        "Use \u201cShow white\u201d to compare.")
+        self.wb_scales = []
+        for idx, name in enumerate(("Red", "Green", "Blue")):
+            row = Adw.ActionRow(title=name)
+            scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 30, 100, 1)
+            scale.set_hexpand(True)
+            scale.set_size_request(200, -1)
+            scale.set_draw_value(True)
+            scale.set_value_pos(Gtk.PositionType.RIGHT)
+            scale.set_format_value_func(lambda _s, v: f"{v:.0f}%")
+            scale.connect("value-changed", self._on_balance)
+            row.add_suffix(scale)
+            wb_group.add(row)
+            self.wb_scales.append(scale)
+        for label, handler in (("Show white", self._on_show_white), ("Reset", self._on_reset_balance)):
+            brow = Adw.ButtonRow(title=label)
+            brow.connect("activated", handler)
+            wb_group.add(brow)
+        page.add(wb_group)
+
         apply_group = Adw.PreferencesGroup()
         self.live_row = Adw.SwitchRow(title="Apply live",
                                       subtitle="Send changes to the device as you make them", active=True)
@@ -554,6 +587,10 @@ class DevicePage(Gtk.Box):
         self.speed_scale.set_value(s.speed)
         self.bright_scale.set_value(s.brightness)
         self.multi_row.set_active(s.multicolor)
+        if self.profile_row is not None:
+            self.profile_row.set_selected(max(0, min(5, s.profile)))
+        for scale, gain in zip(self.wb_scales, config.load_balance(self.backend.key)):
+            scale.set_value(round(gain * 100))
         self._sync()
 
     def _sync(self):
@@ -651,6 +688,31 @@ class DevicePage(Gtk.Box):
         if 0 <= idx < len(choices):
             self.settings.direction = choices[idx][0]
             self._changed()
+
+    def _on_target_profile(self, row, _p):
+        if self._loading:
+            return
+        self.settings.profile = row.get_selected()
+        config.save(self.backend.key, self.settings)
+        # show what that profile currently has, without writing anything
+        self._read_from_device()
+
+    def _on_balance(self, _scale):
+        if self._loading:
+            return
+        config.save_balance(self.backend.key, tuple(sc.get_value() / 100 for sc in self.wb_scales))
+        if self.live_row.get_active():
+            self._changed()
+
+    def _on_show_white(self, *_):
+        self.effect_checks["static"].set_active(True)
+        self._on_swatch(None, "#ffffff")
+        # apply right away even if nothing changed (e.g. already static white)
+        self.apply(show_toast=False)
+
+    def _on_reset_balance(self, *_):
+        for sc in self.wb_scales:
+            sc.set_value(100)
 
     # -- device --------------------------------------------------------
     def refresh(self):
