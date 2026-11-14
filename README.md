@@ -1,4 +1,4 @@
-# Cobra RGB
+# Redragon RGB
 
 Configura i LED RGB del mouse **Redragon M711 Cobra** e della tastiera **Redragon K556**
 su Linux, con un'interfaccia GTK4 / libadwaita nativa per GNOME e una CLI per script.
@@ -20,7 +20,7 @@ su Linux, con un'interfaccia GTK4 / libadwaita nativa per GNOME e una CLI per sc
   cielo stellato, scanner, increspatura, linea reattiva — con colore singolo o multicolore e direzione
 - Mouse: statico, respiro, lampeggio, arcobaleno, respiro arcobaleno, onda, reattivo, spento
 - Selettore colore + palette rapida
-- Velocità (1–8) e luminosità (1–3)
+- Velocità e luminosità regolabili
 - Anteprima animata dell'effetto
 - Applicazione in tempo reale (opzionale) e salvataggio dell'ultima configurazione
 - Le impostazioni vengono scritte nella memoria del mouse (tutti e 5 i profili), quindi restano anche dopo il riavvio o su altri PC
@@ -36,25 +36,25 @@ sudo apt install python3-gi gir1.2-adw-1 libusb-1.0-0
 ## Installazione
 
 ```sh
-git clone https://github.com/codingkoala/cobra-rgb.git
-cd cobra-rgb
+git clone https://github.com/codingkoala/redragon-rgb.git
+cd redragon-rgb
 sudo ./install-udev.sh   # una volta sola: permessi USB/hidraw per l'utente
 ./install.sh             # launcher in ~/.local/bin + voce nel menu applicazioni
 ```
 
 Dopo la regola udev scollega e ricollega i dispositivi. Per provarlo senza installare:
-`python3 -m cobra_rgb`.
+`python3 -m redragon_rgb`.
 
 ## CLI
 
 ```sh
-cobra-rgb-cli list
-cobra-rgb-cli mouse static -c "#00e5ff" -b 3
-cobra-rgb-cli mouse breathing -c ff1e3c -s 5
-cobra-rgb-cli keyboard wave -m -s 4 -d right
-cobra-rgb-cli keyboard static -c 2f6bff -b 4
-cobra-rgb-cli keyboard off
-cobra-rgb-cli restore        # riapplica le ultime impostazioni di tutti i dispositivi
+redragon-rgb-cli list
+redragon-rgb-cli mouse static -c "#00e5ff" -b 3
+redragon-rgb-cli mouse breathing -c ff1e3c -s 5
+redragon-rgb-cli keyboard wave -m -s 4 -d right
+redragon-rgb-cli keyboard static -c 2f6bff -b 4
+redragon-rgb-cli keyboard off
+redragon-rgb-cli restore        # riapplica le ultime impostazioni di tutti i dispositivi
 ```
 
 ## Come funziona
@@ -92,7 +92,7 @@ modalità, luminosità (0–4), velocità (5 lenta → 0 veloce), direzione, fla
 I codici modalità differiscono tra le revisioni del firmware: vengono esposti solo quelli su cui
 concordano il driver EVision di OpenRGB e il controller K556 misurato sull'hardware da
 [syndicalt/openrgb-reddragonk556-controller](https://github.com/syndicalt/openrgb-reddragonk556-controller).
-Per mappare gli altri: `cobra-rgb-cli probe-keyboard 0x04`.
+Per mappare gli altri: `redragon-rgb-cli probe-keyboard 0x04`.
 
 ## Roadmap
 

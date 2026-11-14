@@ -1,4 +1,4 @@
-"""Command line interface: cobra-rgb-cli."""
+"""Command line interface: redragon-rgb-cli."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ def _add_set_parser(sub, key: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="cobra-rgb-cli",
+    parser = argparse.ArgumentParser(prog="redragon-rgb-cli",
                                      description="Configura i LED di mouse M711 e tastiera K556 Redragon")
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("list", help="elenca i dispositivi rilevati")

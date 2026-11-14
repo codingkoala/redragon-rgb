@@ -19,7 +19,7 @@ from .backends import BACKENDS, Backend, BackendError  # noqa: E402
 from .config import Settings, hex_to_rgb, rgb_to_hex  # noqa: E402
 from .effects import DIRECTIONS  # noqa: E402
 
-APP_ID = "io.github.codingkoala.CobraRGB"
+APP_ID = "io.github.codingkoala.RedragonRGB"
 PRESETS = ["#ff1e3c", "#ff7a00", "#ffd000", "#3cff6e", "#00e5ff", "#2f6bff", "#9b4dff", "#ff3df2", "#ffffff"]
 
 CSS = """
@@ -353,7 +353,7 @@ class KeyboardPreview(Preview):
 
 # --- generic device page -----------------------------------------------------
 class DevicePage(Gtk.Box):
-    def __init__(self, window: "CobraWindow", backend: Backend, preview: Preview):
+    def __init__(self, window: "RedragonWindow", backend: Backend, preview: Preview):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL)
         self.window = window
         self.backend = backend
@@ -574,9 +574,9 @@ class DevicePage(Gtk.Box):
 
 
 # --- window ------------------------------------------------------------------
-class CobraWindow(Adw.ApplicationWindow):
+class RedragonWindow(Adw.ApplicationWindow):
     def __init__(self, app):
-        super().__init__(application=app, title="Cobra RGB", default_width=1100, default_height=720)
+        super().__init__(application=app, title="Redragon RGB", default_width=1100, default_height=720)
         self.toasts = Adw.ToastOverlay()
         view = Adw.ToolbarView()
         header = Adw.HeaderBar()
@@ -586,7 +586,7 @@ class CobraWindow(Adw.ApplicationWindow):
         menu = Gtk.MenuButton(icon_name="open-menu-symbolic", tooltip_text="Menu")
         m = Gio.Menu()
         m.append("Ricerca dispositivi", "win.refresh")
-        m.append("Informazioni su Cobra RGB", "app.about")
+        m.append("Informazioni su Redragon RGB", "app.about")
         menu.set_menu_model(m)
         header.pack_end(menu)
         view.add_top_bar(header)
@@ -656,7 +656,7 @@ class CobraWindow(Adw.ApplicationWindow):
         return False
 
 
-class CobraApp(Adw.Application):
+class RedragonApp(Adw.Application):
     def __init__(self):
         super().__init__(application_id=APP_ID)
         self.connect("activate", self._on_activate)
@@ -674,17 +674,17 @@ class CobraApp(Adw.Application):
         self.add_action(about)
 
     def _on_activate(self, _app):
-        win = self.props.active_window or CobraWindow(self)
+        win = self.props.active_window or RedragonWindow(self)
         win.present()
 
     def _on_about(self, *_):
         dialog = Adw.AboutDialog(
-            application_name="Cobra RGB",
+            application_name="Redragon RGB",
             application_icon="input-mouse",
             version=__version__,
             comments="Configura i LED di mouse e tastiere Redragon su Linux",
             license_type=Gtk.License.GPL_3_0,
-            website="https://github.com/codingkoala/cobra-rgb",
+            website="https://github.com/codingkoala/redragon-rgb",
         )
         dialog.add_credit_section("Protocollo", [
             "dokutan/mouse_m908", "OpenRGB", "SK2674/m711-port", "syndicalt/openrgb-reddragonk556-controller"])
@@ -692,7 +692,7 @@ class CobraApp(Adw.Application):
 
 
 def main() -> int:
-    return CobraApp().run(sys.argv)
+    return RedragonApp().run(sys.argv)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""Low-level driver for the Redragon M711 Cobra RGB lighting.
+"""Low-level driver for the Redragon M711 Redragon RGB lighting.
 
 Transport: USB control transfers (HID SET_REPORT) on vendor interface 2,
 through libusb-1.0 loaded with ctypes. hidraw cannot be used because the

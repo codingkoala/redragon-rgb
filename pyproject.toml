@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cobra-rgb"
+name = "redragon-rgb"
 version = "0.2.0"
 description = "RGB lighting control for Redragon M711 Cobra mouse and K556 keyboard on Linux (GTK4/libadwaita)"
 readme = "README.md"
@@ -13,8 +13,8 @@ requires-python = ">=3.10"
 #   sudo apt install python3-gi gir1.2-adw-1 libusb-1.0-0
 
 [project.scripts]
-cobra-rgb = "cobra_rgb.gui:main"
-cobra-rgb-cli = "cobra_rgb.cli:main"
+redragon-rgb = "redragon_rgb.gui:main"
+redragon-rgb-cli = "redragon_rgb.cli:main"
 
 [tool.setuptools]
-packages = ["cobra_rgb"]
+packages = ["redragon_rgb"]

@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=Cobra RGB
+Name=Redragon RGB
 Comment=Configura i LED di mouse e tastiere Redragon
-Exec=cobra-rgb
+Exec=redragon-rgb
 Icon=input-mouse
 Terminal=false
 Categories=Settings;HardwareSettings;
