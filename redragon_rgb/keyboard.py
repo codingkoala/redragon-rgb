@@ -38,7 +38,9 @@ CMD_SET_PARAMETER = 0x06
 
 SPEED_RANGE = (1, 6)  # UI scale, slow -> fast; mapped to firmware 5..0
 BRIGHTNESS_RANGE = (1, 4)
-DIRECTION_CODES = {"left": 0, "right": 1, "up": 2, "down": 3}
+# Firmware direction codes, as verified on a 320f:5000 K556 (0 moves the
+# wave to the right, 1 to the left; OpenRGB names them the other way round).
+DIRECTION_CODES = {"left": 1, "right": 0, "up": 2, "down": 3}
 
 # Mode codes verified on a K556 with the EVision controller (320f:5000); they
 # match OpenRGB's generic EVision table. The SONiX revision (0c45:5004) uses a
