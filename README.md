@@ -4,6 +4,10 @@ Configure the RGB lighting of the **Redragon M711 Cobra** mouse and the **Redrag
 keyboard on Linux — a native GTK4 / libadwaita app for GNOME plus a CLI for scripting.
 No vendor software, no Windows, no pip dependencies.
 
+![Mouse tab: animated preview of the wave effect and the effect list](docs/screenshot-mouse.png)
+
+![Keyboard tab: K556 preview with the wave effect](docs/screenshot-keyboard.png)
+
 | Device | USB ID | Status |
 |---|---|---|
 | M711 Cobra | `04d9:fc30` | tested |
