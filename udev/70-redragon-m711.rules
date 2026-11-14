@@ -1,0 +1,3 @@
+# Redragon M711 Cobra / M711-FPS-1: let the logged-in user configure the LEDs.
+SUBSYSTEM=="usb", ATTRS{idVendor}=="04d9", ATTRS{idProduct}=="fc30", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="04d9", ATTRS{idProduct}=="fc62", TAG+="uaccess"

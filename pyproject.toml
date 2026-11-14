@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cobra-rgb"
+version = "0.1.0"
+description = "RGB lighting control for the Redragon M711 Cobra mouse on Linux (GTK4/libadwaita)"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.10"
+# PyGObject (GTK4 + libadwaita) and libusb-1.0 come from the distribution:
+#   sudo apt install python3-gi gir1.2-adw-1 libusb-1.0-0
+
+[project.scripts]
+cobra-rgb = "cobra_rgb.gui:main"
+cobra-rgb-cli = "cobra_rgb.cli:main"
+
+[tool.setuptools]
+packages = ["cobra_rgb"]
