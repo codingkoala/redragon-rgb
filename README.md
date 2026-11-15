@@ -33,17 +33,24 @@ No vendor software, no Windows, no pip dependencies.
 - Settings are stored in the devices' own memory (all 5 mouse profiles), so they persist across
   reboots and on other computers
 
-## Requirements
-
-Ubuntu 24.04+ or any distribution with GTK 4 and libadwaita ≥ 1.6:
-
-```sh
-sudo apt install python3-gi gir1.2-adw-1 libusb-1.0-0
-```
-
 ## Installation
 
+### Debian / Ubuntu package (recommended)
+
+Requires Ubuntu 25.04+ / Debian 13+ or any release with libadwaita ≥ 1.6.
+Download the `.deb` from the [latest release](https://github.com/codingkoala/redragon-rgb/releases/latest), then:
+
 ```sh
+sudo apt install ./redragon-rgb_*_all.deb
+```
+
+`apt` pulls in the dependencies and the package installs the udev rule. Unplug and replug the
+devices once, then start **Redragon RGB** from the application menu (or run `redragon-rgb`).
+
+### From source
+
+```sh
+sudo apt install python3-gi python3-gi-cairo gir1.2-adw-1 libusb-1.0-0
 git clone https://github.com/codingkoala/redragon-rgb.git
 cd redragon-rgb
 sudo ./install-udev.sh   # once: USB/hidraw access for the desktop user
@@ -51,7 +58,7 @@ sudo ./install-udev.sh   # once: USB/hidraw access for the desktop user
 ```
 
 Unplug and replug the devices after installing the udev rule. To try it without installing:
-`python3 -m redragon_rgb`.
+`python3 -m redragon_rgb`. To build the `.deb` yourself: `packaging/build-deb.sh`.
 
 ## CLI
 

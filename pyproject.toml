@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "redragon-rgb"
-version = "0.2.0"
+version = "0.3.0"
 description = "RGB lighting control for Redragon M711 Cobra mouse and K556 keyboard on Linux (GTK4/libadwaita)"
 readme = "README.md"
 license = "GPL-3.0-or-later"
